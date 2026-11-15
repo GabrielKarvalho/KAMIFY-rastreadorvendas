@@ -5,6 +5,7 @@ import { estaLogado } from "@/lib/auth";
 import Topbar from "@/components/Topbar";
 import { contexto, filtroAds, filtroVendas, impostoPct } from "@/lib/consultas";
 import { STATUS_META } from "@/lib/meta-ads";
+import { ChaveStatus, EditaOrcamento } from "@/components/Controles";
 import { brl, intervalo, inteiro, linkCom, num, pct, vezes, type SP } from "@/lib/filtros";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ const NIVEIS = {
 type Nivel = keyof typeof NIVEIS;
 
 type Linha = {
-  id: string | null; nome: string; status?: string; orcamento?: number | null; tipoOrc?: string | null; pai?: string | null;
+  id: string | null; nome: string; status?: string; statusConfig?: string | null; orcamento?: number | null; tipoOrc?: string | null; pai?: string | null;
   gasto: number; impressoes: number; cliques: number; cliques_link: number; lp_views: number; checkouts: number;
   vendas: number; bruto: number; fat: number; pix_gerados: number; pix_pagos: number; pedidos: number; perdas: number;
 };
@@ -97,7 +98,7 @@ export default async function Campanhas({ searchParams }: { searchParams: Promis
               count(*) AS pedidos,
               count(*) FILTER (WHERE v.status IN ('refunded','chargedback')) AS perdas
        FROM vendas v WHERE ${fv.where} GROUP BY 1`, fv.params),
-    sql.query(`SELECT id, nome, status, orcamento, tipo_orcamento, pai_id FROM meta_objetos WHERE nivel = $1`, [N.obj]),
+    sql.query(`SELECT id, nome, status, status_config, orcamento, tipo_orcamento, pai_id FROM meta_objetos WHERE nivel = $1`, [N.obj]),
     sql.query(`SELECT id, nome FROM meta_objetos WHERE id = ANY($1)`, [[sp.campanha, sp.conjunto].filter(Boolean)]),
   ]);
 
@@ -122,6 +123,7 @@ export default async function Campanhas({ searchParams }: { searchParams: Promis
     const o = l.id ? objMap.get(l.id) : null;
     if (o) {
       l.status = o.status;
+      l.statusConfig = o.status_config;
       l.orcamento = o.orcamento;
       l.tipoOrc = o.tipo_orcamento;
       if (o.nome) l.nome = o.nome;
@@ -175,7 +177,7 @@ export default async function Campanhas({ searchParams }: { searchParams: Promis
         )}
       </div>
 
-      <section className="box sem-pad">
+      <section className="box sem-pad tabela-desktop">
         <div className="scroll">
           <table className="tabela-camp">
             <thead>
@@ -201,6 +203,37 @@ export default async function Campanhas({ searchParams }: { searchParams: Promis
           </table>
         </div>
       </section>
+      <section className="cartoes-camp">
+        {linhas.length === 0 && <p className="vazio">Nenhum dado no período.</p>}
+        {linhas.map((l) => {
+          const m = metricas(l);
+          const link = drill(l);
+          return (
+            <div key={l.id || "sem"} className="ccard">
+              <div className="ccard-top">
+                <div className="ccard-nome">
+                  {link ? <Link href={link}>{l.nome}</Link> : <b>{l.nome}</b>}
+                </div>
+                {l.id && l.status && <StatusCelula l={l} stTxt={(STATUS_META[l.status] || [l.status])[0]} stCls={(STATUS_META[l.status] || [l.status, "muted"])[1]} />}
+              </div>
+              {l.id && l.orcamento && l.tipoOrc ? (
+                <div className="ccard-orc">Orçamento <EditaOrcamento id={l.id} valor={Number(l.orcamento)} tipo={l.tipoOrc} /></div>
+              ) : null}
+              <div className="ccard-grade">
+                <div><span>Gasto</span><b>{brl(l.gasto)}</b></div>
+                <div><span>Faturamento</span><b>{brl(l.fat)}</b></div>
+                <div><span>Lucro</span><b className={l.gasto || l.fat ? (m.lucro >= 0 ? "verde" : "vermelho") : ""}>{brl(m.lucro)}</b></div>
+                <div><span>Vendas</span><b>{inteiro(l.vendas)}</b></div>
+                <div><span>ROAS</span><b>{m.roas != null ? vezes(l.fat, l.gasto) : "—"}</b></div>
+                <div><span>CPA</span><b>{m.cpa != null ? brl(m.cpa) : "—"}</b></div>
+                <div><span>IC</span><b>{inteiro(l.checkouts)}</b></div>
+                <div><span>CPC</span><b>{m.cpc != null ? brl(m.cpc) : "—"}</b></div>
+                <div><span>CTR</span><b>{m.ctr != null ? pct(l.cliques_link, l.impressoes, 2) : "—"}</b></div>
+              </div>
+            </div>
+          );
+        })}
+      </section>
       <p className="nota">
         Gasto, impressões, cliques e IC vêm da Meta Ads; vendas, faturamento e PIX vêm da Wiapy, ligados pelo ID no final de cada UTM
         (ex.: <code>Campanha X|1201…</code>). Clique no nome para descer de nível.
@@ -220,8 +253,10 @@ function LinhaTabela({ l, link, total }: { l: Linha; link: string | null; total?
         {link ? <Link href={link}>{l.nome}</Link> : l.nome}
         {!total && l.id && <small>{l.id}</small>}
       </td>
-      <td>{total ? "" : stCls ? <span className={`tag ${stCls}`}>{stTxt}</span> : "—"}</td>
-      <td>{l.orcamento ? <>{brl(l.orcamento)}<small>{l.tipoOrc === "total" ? "total" : "/dia"}</small></> : "—"}</td>
+      <td className="st">
+        {total ? "" : <StatusCelula l={l} stTxt={stTxt} stCls={stCls} />}
+      </td>
+      <td>{total ? "—" : l.id && l.orcamento && l.tipoOrc ? <EditaOrcamento id={l.id} valor={Number(l.orcamento)} tipo={l.tipoOrc} /> : "—"}</td>
       <td><b>{inteiro(l.vendas)}</b></td>
       <td>{m.cpa != null ? brl(m.cpa) : "—"}</td>
       <td>{brl(l.gasto)}</td>
@@ -240,5 +275,17 @@ function LinhaTabela({ l, link, total }: { l: Linha; link: string | null; total?
       <td>{inteiro(l.impressoes)}</td>
       <td>{inteiro(l.cliques_link)}</td>
     </tr>
+  );
+}
+
+function StatusCelula({ l, stTxt, stCls }: { l: Linha; stTxt: string; stCls: string }) {
+  if (!l.id || !l.status) return <>—</>;
+  const ligado = (l.statusConfig || l.status) === "ACTIVE";
+  const mostraTag = !(l.status === "ACTIVE" || (l.status === "PAUSED" && !ligado));
+  return (
+    <span className="st-wrap">
+      <ChaveStatus id={l.id} ativo={ligado} nome={l.nome} />
+      {mostraTag && <span className={`tag ${stCls}`}>{stTxt}</span>}
+    </span>
   );
 }

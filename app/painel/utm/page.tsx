@@ -47,6 +47,20 @@ export default async function Utm() {
       </section>
 
       <section className="box">
+        <h2>Controle de campanhas</h2>
+        <p className="texto">
+          Para ligar/pausar e mudar orçamento direto pela aba Campanhas, o token da Meta precisa da permissão
+          <b> ads_management</b> e o usuário do sistema Kamify precisa de acesso <b>total</b> à conta de anúncios:
+        </p>
+        <ol className="dicas">
+          <li>Configurações do negócio → Usuários do sistema → <b>Kamify</b> → na conta de anúncios, clique em <b>Gerenciar</b> e ative <b>Gerenciar campanhas</b>.</li>
+          <li>Clique em <b>Gerar token</b> → app <b>Kamify</b> → validade <b>Nunca</b> → marque <b>ads_read</b> e <b>ads_management</b>.</li>
+          <li>Cole no <code>META_ADS_TOKEN</code> da Vercel e faça Redeploy.</li>
+        </ol>
+        <p className="texto">Toda alteração pede confirmação, e aumentos acima de 5x de uma vez são bloqueados por segurança.</p>
+      </section>
+
+      <section className="box">
         <h2>Webhook da Wiapy</h2>
         <p className="texto">Wiapy → Integrações → Webhook. Use a URL abaixo e o mesmo token da variável <code>WIAPY_TOKEN</code>. Marque todos os eventos.</p>
         <div className="codigo">
@@ -54,6 +68,10 @@ export default async function Utm() {
           <Copiar texto={webhook} />
         </div>
       </section>
+
+      <form action="/api/logout" method="post" className="sair-mobile">
+        <button className="chip">Sair da conta</button>
+      </form>
     </>
   );
 }

@@ -29,6 +29,22 @@ async function graph(path: string, params: Record<string, string>) {
   return out;
 }
 
+/** POST na Graph API (alterar status/orçamento). */
+export async function graphPost(id: string, campos: Record<string, string>) {
+  const body = new URLSearchParams({ ...campos, access_token: token() });
+  const r = await fetch(`https://graph.facebook.com/${versao()}/${id}`, {
+    method: "POST",
+    body,
+    signal: AbortSignal.timeout(15000),
+  });
+  const j: any = await r.json().catch(() => ({}));
+  if (!r.ok || j.error) {
+    const e = j?.error || {};
+    throw new Error(e.error_user_msg || e.message || `HTTP ${r.status}`);
+  }
+  return j;
+}
+
 const acao = (acoes: any[] | undefined, tipos: string[]) => {
   if (!Array.isArray(acoes)) return 0;
   let melhor = 0;
@@ -78,28 +94,29 @@ async function sincronizarConta(conta: string, deDia: string, ateDia: string) {
 
   // 2. Status e orçamento de campanhas / conjuntos / anúncios
   const [camps, sets, ads, info] = await Promise.all([
-    graph(`${conta}/campaigns`, { fields: "id,name,effective_status,daily_budget,lifetime_budget" }),
-    graph(`${conta}/adsets`, { fields: "id,name,campaign_id,effective_status,daily_budget,lifetime_budget" }),
-    graph(`${conta}/ads`, { fields: "id,name,adset_id,effective_status" }),
+    graph(`${conta}/campaigns`, { fields: "id,name,status,effective_status,daily_budget,lifetime_budget" }),
+    graph(`${conta}/adsets`, { fields: "id,name,status,campaign_id,effective_status,daily_budget,lifetime_budget" }),
+    graph(`${conta}/ads`, { fields: "id,name,status,adset_id,effective_status" }),
     graph(conta, { fields: "name,balance,amount_spent,spend_cap,account_status,currency,is_prepay_account,funding_source_details" }),
   ]);
   const objs = [
-    ...camps.map((o) => ["campanha", o.id, null, o.name, o.effective_status, o.daily_budget ?? o.lifetime_budget ?? null, o.daily_budget ? "diario" : o.lifetime_budget ? "total" : null]),
-    ...sets.map((o) => ["conjunto", o.id, o.campaign_id, o.name, o.effective_status, o.daily_budget ?? o.lifetime_budget ?? null, o.daily_budget ? "diario" : o.lifetime_budget ? "total" : null]),
-    ...ads.map((o) => ["anuncio", o.id, o.adset_id, o.name, o.effective_status, null, null]),
+    ...camps.map((o) => ["campanha", o.id, null, o.name, o.effective_status, o.daily_budget ?? o.lifetime_budget ?? null, o.daily_budget ? "diario" : o.lifetime_budget ? "total" : null, o.status]),
+    ...sets.map((o) => ["conjunto", o.id, o.campaign_id, o.name, o.effective_status, o.daily_budget ?? o.lifetime_budget ?? null, o.daily_budget ? "diario" : o.lifetime_budget ? "total" : null, o.status]),
+    ...ads.map((o) => ["anuncio", o.id, o.adset_id, o.name, o.effective_status, null, null, o.status]),
   ];
   for (let i = 0; i < objs.length; i += 150) {
     const lote = objs.slice(i, i + 150);
     const vals: unknown[] = [];
     const tuplas = lote.map((o) => {
       const b = vals.length;
-      vals.push(o[1], o[0], conta, o[2], o[3], o[4], o[5] === null ? null : Number(o[5]), o[6]);
-      return `($${b + 1},$${b + 2},$${b + 3},$${b + 4},$${b + 5},$${b + 6},$${b + 7},$${b + 8})`;
+      vals.push(o[1], o[0], conta, o[2], o[3], o[4], o[5] === null ? null : Number(o[5]), o[6], o[7] ?? null);
+      return `($${b + 1},$${b + 2},$${b + 3},$${b + 4},$${b + 5},$${b + 6},$${b + 7},$${b + 8},$${b + 9})`;
     });
     await sql.query(
-      `INSERT INTO meta_objetos (id, nivel, conta, pai_id, nome, status, orcamento, tipo_orcamento)
+      `INSERT INTO meta_objetos (id, nivel, conta, pai_id, nome, status, orcamento, tipo_orcamento, status_config)
        VALUES ${tuplas.join(",")}
        ON CONFLICT (id) DO UPDATE SET nome = EXCLUDED.nome, status = EXCLUDED.status, pai_id = EXCLUDED.pai_id,
+         status_config = EXCLUDED.status_config,
          orcamento = EXCLUDED.orcamento, tipo_orcamento = EXCLUDED.tipo_orcamento, atualizado_em = now()`,
       vals,
     );

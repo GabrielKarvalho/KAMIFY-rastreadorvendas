@@ -45,6 +45,8 @@ export function garantirSchema() {
           raw               JSONB
         )`;
       await sql`CREATE INDEX IF NOT EXISTS vendas_criado_idx ON vendas (criado_em)`;
+      await sql`ALTER TABLE vendas ADD COLUMN IF NOT EXISTS origem TEXT NOT NULL DEFAULT 'webhook'`;
+      await sql`ALTER TABLE vendas ADD COLUMN IF NOT EXISTS lote TEXT`;
       await sql`
         CREATE TABLE IF NOT EXISTS webhook_log (
           id          BIGSERIAL PRIMARY KEY,
@@ -93,6 +95,20 @@ export function garantirSchema() {
           orcamento     INTEGER,
           tipo_orcamento TEXT,
           atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+        )`;
+      await sql`ALTER TABLE meta_objetos ADD COLUMN IF NOT EXISTS status_config TEXT`;
+      await sql`
+        CREATE TABLE IF NOT EXISTS meta_acoes (
+          id         BIGSERIAL PRIMARY KEY,
+          em         TIMESTAMPTZ NOT NULL DEFAULT now(),
+          objeto_id  TEXT NOT NULL,
+          nivel      TEXT,
+          nome       TEXT,
+          acao       TEXT NOT NULL,
+          de         TEXT,
+          para       TEXT,
+          ok         BOOLEAN NOT NULL,
+          resposta   TEXT
         )`;
       await sql`
         CREATE TABLE IF NOT EXISTS meta_contas (
