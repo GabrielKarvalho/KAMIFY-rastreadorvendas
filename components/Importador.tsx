@@ -78,15 +78,36 @@ export default function Importador() {
     setArquivo(f.name);
     try {
       const XLSX = await import("xlsx");
-      const buf = await f.arrayBuffer();
-      const wb = XLSX.read(buf, { type: "array", cellDates: false, raw: false });
+      let wb;
+      if (/\.csv$/i.test(f.name) || f.type.includes("csv") || f.type === "text/plain") {
+        // CSV: descobre se o separador é ";" (padrão BR), "," ou tab
+        let texto = await f.text();
+        texto = texto.replace(/^\uFEFF/, "");
+        const primeira = texto.split(/\r?\n/)[0] || "";
+        const conta = (c: string) => primeira.split(c).length - 1;
+        const sep = [";", ",", "\t"].sort((a, b) => conta(b) - conta(a))[0];
+        wb = XLSX.read(texto, { type: "string", FS: sep, raw: true });
+      } else {
+        const buf = await f.arrayBuffer();
+        wb = XLSX.read(buf, { type: "array", cellDates: false, raw: false });
+      }
       // pega a aba com mais linhas
       let melhor: Record<string, unknown>[] = [];
       for (const nome of wb.SheetNames) {
         const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[nome], { defval: "", raw: false });
         if (rows.length > melhor.length) melhor = rows;
       }
-      if (!melhor.length) throw new Error("Não encontrei linhas nessa planilha.");
+      if (!melhor.length) {
+        const doKamify = /^vendas-\d{4}-\d{2}-\d{2}-a-/.test(f.name);
+        throw new Error(
+          doKamify
+            ? "Esse arquivo foi exportado pelo próprio KAMIFY (e está vazio). Use a planilha que a Wiapy mandou para o seu e-mail em Vendas → Exportar para Excel."
+            : "A planilha só tem o cabeçalho, sem nenhuma venda. Confira o período escolhido na exportação da Wiapy.",
+        );
+      }
+      if (/^vendas-\d{4}-\d{2}-\d{2}-a-/.test(f.name)) {
+        setErro("Atenção: esse parece ser um arquivo exportado pelo próprio KAMIFY. Para trazer vendas antigas, use a planilha da Wiapy.");
+      }
       const cab = Object.keys(melhor[0]);
       setLinhas(melhor);
       setCabecalhos(cab);
