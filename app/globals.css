@@ -113,7 +113,8 @@ button, select, input { font: inherit; color: inherit; }
 .saldo:last-child { border: 0; }
 .saldo b { display: block; font-size: 15px; }
 .saldo small { color: var(--muted); font-size: 11.5px; }
-.saldo span { font-weight: 700; font-size: 17px; }
+.saldo span { font-weight: 700; font-size: 17px; text-align: right; }
+.saldo-sub { display: block; font-size: 11.5px; font-weight: 400; color: var(--muted); }
 
 /* funil */
 .funil svg { width: 100%; height: 190px; display: block; }

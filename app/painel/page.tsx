@@ -138,7 +138,11 @@ export default async function Painel({ searchParams }: { searchParams: Promise<S
                 <b>{c.nome || c.id}</b>
                 <small>{c.id}</small>
               </div>
-              <span className="verde">{c.saldo_texto ? extraiValor(c.saldo_texto) : c.saldo != null ? brl(c.saldo) : "—"}</span>
+              {c.saldo_texto && /R\$/.test(c.saldo_texto) ? (
+                <span className="verde">{extraiValor(c.saldo_texto)}<small className="saldo-sub">saldo pré-pago</small></span>
+              ) : (
+                <span>{c.saldo != null ? brl(c.saldo) : "—"}<small className="saldo-sub">a cobrar{c.saldo_texto ? ` · ${c.saldo_texto}` : ""}</small></span>
+              )}
             </div>
           ))}
         </div>
