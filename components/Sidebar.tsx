@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import TemaToggle from "@/components/TemaToggle";
 
 const ICONES: Record<string, React.ReactNode> = {
   painel: <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />,
@@ -65,6 +66,7 @@ export default function Sidebar() {
         })}
       </nav>
       <form action="/api/logout" method="post" className="sair">
+        <TemaToggle comTexto />
         <button>Sair</button>
       </form>
     </aside>

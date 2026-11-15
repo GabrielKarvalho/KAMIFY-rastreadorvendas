@@ -62,7 +62,7 @@ export function Funil({ etapas }: { etapas: { nome: string; valor: number }[] })
           return (
             <g key={e.nome}>
               <path d={d} fill={`url(#fg${i})`} />
-              {i > 0 && <line x1={x0} x2={x0} y1={4} y2={H - 4} stroke="#cfd6e4" strokeDasharray="4 5" />}
+              {i > 0 && <line x1={x0} x2={x0} y1={4} y2={H - 4} style={{ stroke: "var(--border-strong)" }} strokeDasharray="4 5" />}
             </g>
           );
         })}
@@ -97,7 +97,7 @@ export function Barras({ dados }: { dados: { rotulo: string; fat: number; vendas
     <div className="barras-wrap">
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="barras-svg">
         {[0.25, 0.5, 0.75, 1].map((f) => (
-          <line key={f} x1={0} x2={W} y1={y(max * f)} y2={y(max * f)} stroke="#edf0f5" />
+          <line key={f} x1={0} x2={W} y1={y(max * f)} y2={y(max * f)} style={{ stroke: "var(--grid)" }} />
         ))}
         {dados.map((d, i) => {
           const bw = Math.max(2, passo * 0.62);

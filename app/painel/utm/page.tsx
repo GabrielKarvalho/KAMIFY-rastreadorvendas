@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { estaLogado } from "@/lib/auth";
+import TemaToggle from "@/components/TemaToggle";
 import Copiar from "@/components/Copiar";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,7 @@ export default async function Utm() {
 
   return (
     <>
-      <header className="topbar"><h1>Parâmetros UTM</h1></header>
+      <header className="topbar"><h1>Parâmetros UTM</h1><TemaToggle mobile /></header>
 
       <section className="box">
         <h2>Meta Ads</h2>

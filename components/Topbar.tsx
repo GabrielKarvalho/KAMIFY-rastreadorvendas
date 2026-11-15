@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
+import TemaToggle from "@/components/TemaToggle";
 
 type Props = {
   titulo: string;
@@ -42,6 +43,7 @@ export default function Topbar({ titulo, produtos, contas, exportar = true }: Pr
   return (
     <header className={`topbar${pendente ? " carregando" : ""}`}>
       <h1>{titulo}</h1>
+      <TemaToggle mobile />
       <div className="chips">
         {PERIODOS.map(([k, r]) => (
           <button key={k} className={`chip${atual === k ? " on" : ""}`} onClick={() => ir({ periodo: k === "hoje" ? null : k, de: null, ate: null })}>
