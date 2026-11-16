@@ -36,13 +36,16 @@ const COLUNAS: { k: string; t: string; dica?: string }[] = [
   { k: "roi", t: "ROI" },
   { k: "pix_gerados", t: "PIX gerados" },
   { k: "conv_pix", t: "Conv. PIX" },
+  { k: "cliques_link", t: "Cliques", dica: "Cliques no link (Meta)" },
+  { k: "lp_views", t: "Visitas", dica: "Visualizações da página de destino (Meta)" },
+  { k: "conexao", t: "Conexão", dica: "Visitas ÷ cliques: quantos dos que clicaram carregaram o site" },
+  { k: "cpv", t: "Custo/visita" },
   { k: "checkouts", t: "IC", dica: "Checkouts iniciados (Meta)" },
   { k: "cpi", t: "Custo/IC" },
   { k: "cpc", t: "CPC" },
   { k: "ctr", t: "CTR" },
   { k: "cpm", t: "CPM" },
   { k: "impressoes", t: "Impressões" },
-  { k: "cliques_link", t: "Cliques" },
 ];
 
 function metricas(l: Linha) {
@@ -59,6 +62,8 @@ function metricas(l: Linha) {
     cpc: l.cliques_link ? l.gasto / l.cliques_link : null,
     ctr: l.impressoes ? l.cliques_link / l.impressoes : null,
     cpm: l.impressoes ? (l.gasto / l.impressoes) * 1000 : null,
+    conexao: l.cliques_link ? l.lp_views / l.cliques_link : null,
+    cpv: l.lp_views ? l.gasto / l.lp_views : null,
   };
 }
 
@@ -226,6 +231,9 @@ export default async function Campanhas({ searchParams }: { searchParams: Promis
                 <div><span>Vendas</span><b>{inteiro(l.vendas)}</b></div>
                 <div><span>ROAS</span><b>{m.roas != null ? vezes(l.fat, l.gasto) : "—"}</b></div>
                 <div><span>CPA</span><b>{m.cpa != null ? brl(m.cpa) : "—"}</b></div>
+                <div><span>Cliques</span><b>{inteiro(l.cliques_link)}</b></div>
+                <div><span>Visitas</span><b>{inteiro(l.lp_views)}</b></div>
+                <div><span>Conexão</span><b className={corConexao(m.conexao)}>{m.conexao != null ? pct(l.lp_views, l.cliques_link, 0) : "—"}</b></div>
                 <div><span>IC</span><b>{inteiro(l.checkouts)}</b></div>
                 <div><span>CPC</span><b>{m.cpc != null ? brl(m.cpc) : "—"}</b></div>
                 <div><span>CTR</span><b>{m.ctr != null ? pct(l.cliques_link, l.impressoes, 2) : "—"}</b></div>
@@ -236,7 +244,7 @@ export default async function Campanhas({ searchParams }: { searchParams: Promis
       </section>
       <p className="nota">
         Gasto, impressões, cliques e IC vêm da Meta Ads; vendas, faturamento e PIX vêm da Wiapy, ligados pelo ID no final de cada UTM
-        (ex.: <code>Campanha X|1201…</code>). Clique no nome para descer de nível.
+        (ex.: <code>Campanha X|1201…</code>). <b>Conexão</b> = visitas ÷ cliques: abaixo de 50% indica página lenta ou link com problema. Clique no nome para descer de nível.
       </p>
     </>
   );
@@ -267,13 +275,16 @@ function LinhaTabela({ l, link, total }: { l: Linha; link: string | null; total?
       <td className={cor(m.roi)}>{m.roi != null ? pct(m.lucro, l.gasto, 0) : "—"}</td>
       <td>{inteiro(l.pix_gerados)}</td>
       <td>{m.conv_pix != null ? pct(l.pix_pagos, l.pix_gerados) : "—"}</td>
+      <td>{inteiro(l.cliques_link)}</td>
+      <td>{inteiro(l.lp_views)}</td>
+      <td className={corConexao(m.conexao)}>{m.conexao != null ? pct(l.lp_views, l.cliques_link, 0) : "—"}</td>
+      <td>{m.cpv != null ? brl(m.cpv) : "—"}</td>
       <td>{inteiro(l.checkouts)}</td>
       <td>{m.cpi != null ? brl(m.cpi) : "—"}</td>
       <td>{m.cpc != null ? brl(m.cpc) : "—"}</td>
       <td>{m.ctr != null ? pct(l.cliques_link, l.impressoes, 2) : "—"}</td>
       <td>{m.cpm != null ? brl(m.cpm) : "—"}</td>
       <td>{inteiro(l.impressoes)}</td>
-      <td>{inteiro(l.cliques_link)}</td>
     </tr>
   );
 }
@@ -288,4 +299,10 @@ function StatusCelula({ l, stTxt, stCls }: { l: Linha; stTxt: string; stCls: str
       {mostraTag && <span className={`tag ${stCls}`}>{stTxt}</span>}
     </span>
   );
+}
+
+/** Conexão (visitas ÷ cliques): verde ≥ 70%, amarelo 50–70%, vermelho < 50% */
+function corConexao(v: number | null) {
+  if (v == null) return "";
+  return v >= 0.7 ? "verde" : v >= 0.5 ? "amarelo" : "vermelho";
 }
