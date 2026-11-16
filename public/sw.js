@@ -1,5 +1,5 @@
 // Service worker do KAMIFY: dados sempre da rede; só guarda arquivos estáticos e uma tela offline.
-const CACHE = "kamify-v1";
+const CACHE = "kamify-v2";
 const OFFLINE = "/offline.html";
 
 self.addEventListener("install", (e) => {
