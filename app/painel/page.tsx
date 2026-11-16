@@ -4,9 +4,10 @@ import { estaLogado } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Topbar from "@/components/Topbar";
 import AvisoMeta from "@/components/AvisoMeta";
+import GastoManual from "@/components/GastoManual";
 import { Barras, Card, Funil, Linha } from "@/components/Graficos";
 import { contexto, filtroAds, filtroVendas, impostoPct, SQL_TOTAIS_ADS, SQL_TOTAIS_VENDAS } from "@/lib/consultas";
-import { brl, intervalo, inteiro, linkCom, num, pct, TZ, vezes, type SP } from "@/lib/filtros";
+import { brl, diaSP, intervalo, inteiro, linkCom, num, pct, TZ, vezes, type SP } from "@/lib/filtros";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -32,7 +33,7 @@ export default async function Painel({ searchParams }: { searchParams: Promise<S
          count(*) FILTER (WHERE v.status='paid') AS vendas
        FROM vendas v WHERE ${fv.where} GROUP BY 1`;
 
-  const [tv, ta, serieV, serieA, metodos, produtos, bumps, topCamp, gastoCamp, contas] = await Promise.all([
+  const [tv, ta, serieV, serieA, metodos, produtos, bumps, topCamp, gastoCamp, contas, manuais] = await Promise.all([
     sql.query(`SELECT ${SQL_TOTAIS_VENDAS} FROM vendas v WHERE ${fv.where}`, fv.params),
     sql.query(`SELECT ${SQL_TOTAIS_ADS} FROM ads_diario a WHERE ${fa.where}`, fa.params),
     sql.query(serieVendasSql, fv.params),
@@ -59,11 +60,17 @@ export default async function Painel({ searchParams }: { searchParams: Promise<S
        GROUP BY 1 ORDER BY fat DESC LIMIT 6`, fv.params),
     sql.query(`SELECT a.campaign_id AS id, max(a.campaign_name) AS nome, sum(a.gasto) AS gasto FROM ads_diario a WHERE ${fa.where} GROUP BY 1`, fa.params),
     sql`SELECT id, nome, saldo_texto, saldo, gasto_total, limite FROM meta_contas ORDER BY nome`,
+    sql`SELECT to_char(data,'YYYY-MM-DD') AS k, valor FROM gasto_manual WHERE data BETWEEN ${iv.deDia} AND ${iv.ateDia} ORDER BY data`,
   ]);
 
   const t: any = (tv as any[])[0] || {};
   const a: any = (ta as any[])[0] || {};
-  const gasto = num(a.gasto);
+  // gasto manual substitui o da Meta no dia lançado (só quando não há filtro de conta)
+  const gastoMeta = new Map((serieA as any[]).map((r) => [r.k, num(r.gasto)]));
+  const gastoManual = sp.conta ? new Map<string, number>() : new Map((manuais as any[]).map((r) => [r.k, num(r.valor)]));
+  const gastoDia = (d: string) => (gastoManual.has(d) ? gastoManual.get(d)! : gastoMeta.get(d) || 0);
+  const diasComGasto = new Set([...gastoMeta.keys(), ...gastoManual.keys()]);
+  const gasto = [...diasComGasto].reduce((t, d) => t + gastoDia(d), 0);
   const vendas = num(t.vendas);
   const liquido = num(t.liquido);
   const imposto = Math.round(num(t.bruto) * impostoPct());
@@ -77,10 +84,9 @@ export default async function Painel({ searchParams }: { searchParams: Promise<S
     serie = Array.from({ length: 24 }, (_, h) => ({ rotulo: `${h}h`, fat: num(m.get(h)?.fat), vendas: num(m.get(h)?.vendas) }));
   } else {
     const mv = new Map((serieV as any[]).map((r) => [r.k, r]));
-    const mg = new Map((serieA as any[]).map((r) => [r.k, num(r.gasto)]));
     serie = [];
     for (let d = iv.deDia; d <= iv.ateDia; d = new Date(new Date(d + "T12:00:00Z").getTime() + 86400_000).toISOString().slice(0, 10)) {
-      serie.push({ rotulo: d.slice(8, 10) + "/" + d.slice(5, 7), fat: num(mv.get(d)?.fat), vendas: num(mv.get(d)?.vendas), gasto: mg.get(d) || 0 });
+      serie.push({ rotulo: d.slice(8, 10) + "/" + d.slice(5, 7), fat: num(mv.get(d)?.fat), vendas: num(mv.get(d)?.vendas), gasto: gastoDia(d) });
       if (serie.length > 400) break;
     }
   }
@@ -107,7 +113,16 @@ export default async function Painel({ searchParams }: { searchParams: Promise<S
         <Card titulo="Faturamento" sufixo="líquido" valor={brl(liquido)} extra={`Bruto ${brl(t.bruto)} · taxas ${brl(t.taxas)}`} />
         <Card titulo="Lucro" sufixo="líquido" valor={brl(lucro)} cor={lucro >= 0 ? "verde" : "vermelho"} selo={seloLucro}
           extra={imposto ? `Imposto ${brl(imposto)}` : undefined} />
-        <Card titulo="Gasto em ads" valor={brl(gasto)} />
+        <div className="card">
+          <span className="ct">Gasto em ads</span>
+          <strong>{brl(gasto)}</strong>
+          <GastoManual
+            de={iv.deDia}
+            ate={iv.ateDia}
+            hoje={diaSP()}
+            lancados={(sp.conta ? [] : (manuais as any[])).map((m) => ({ data: m.k, valor: num(m.valor), meta: gastoMeta.get(m.k) || 0 }))}
+          />
+        </div>
         <Card titulo="CPA" valor={vendas && gasto ? brl(gasto / vendas) : "—"} />
         <Card titulo="ARPU" valor={vendas ? brl(liquido / vendas) : "—"} />
         <Card titulo="ROAS" valor={gasto ? vezes(liquido, gasto) : "—"} cor={gasto && roas < 1 ? "vermelho" : "azul"} selo={seloRoas} />

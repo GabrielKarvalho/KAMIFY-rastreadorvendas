@@ -123,6 +123,12 @@ export function garantirSchema() {
           atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
         )`;
       await sql`
+        CREATE TABLE IF NOT EXISTS gasto_manual (
+          data          DATE PRIMARY KEY,
+          valor         INTEGER NOT NULL,
+          atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+        )`;
+      await sql`
         CREATE TABLE IF NOT EXISTS meta_sync (
           chave TEXT PRIMARY KEY,
           em    TIMESTAMPTZ NOT NULL DEFAULT now(),
