@@ -92,7 +92,10 @@ async function sincronizarConta(conta: string, deDia: string, ateDia: string) {
     );
   }
 
-  // 2. Status e orçamento de campanhas / conjuntos / anúncios
+}
+
+/** Status, orçamento e saldo: muda pouco, então é lido no máximo 1x por hora. */
+async function sincronizarObjetos(conta: string) {
   const [camps, sets, ads, info] = await Promise.all([
     graph(`${conta}/campaigns`, { fields: "id,name,status,effective_status,daily_budget,lifetime_budget" }),
     graph(`${conta}/adsets`, { fields: "id,name,status,campaign_id,effective_status,daily_budget,lifetime_budget" }),
@@ -142,29 +145,37 @@ export async function sincronizarMeta(deDia: string, ateDia: string, forcar = fa
   if (!adsConfigurado()) return null;
   await garantirSchema();
   const erros: string[] = [];
-  await Promise.all(
-    contasConfiguradas().map(async (conta) => {
-      const chave = `${conta}:${deDia}:${ateDia}`;
-      const [ult] = (await sql`SELECT em, erro FROM meta_sync WHERE chave = ${chave}`) as any[];
-      // sucesso: reaproveita por 10 min; erro: espera 30 min antes de tentar de novo (não insistir com a Meta)
-      const idade = ult ? Date.now() - new Date(ult.em).getTime() : Infinity;
-      if (ult && !forcar && idade < (ult.erro ? 30 : 10) * 60_000) {
-        if (ult.erro) erros.push(ult.erro);
-        return;
-      }
-      try {
-        await sincronizarConta(conta, deDia, ateDia);
-        await sql`INSERT INTO meta_sync (chave, em, erro) VALUES (${chave}, now(), NULL)
-                  ON CONFLICT (chave) DO UPDATE SET em = now(), erro = NULL`;
-      } catch (e: any) {
-        const msg = `${conta}: ${e?.message || e}`;
-        erros.push(msg);
-        await sql`INSERT INTO meta_sync (chave, em, erro) VALUES (${chave}, now(), ${msg})
-                  ON CONFLICT (chave) DO UPDATE SET em = now(), erro = ${msg}`;
-      }
-    }),
-  );
-  return erros.length ? erros.join(" · ") : null;
+  const hoje = new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
+  const incluiHoje = ateDia >= hoje;
+
+  /** Executa `fn` se o cache `chave` estiver vencido. Erro: espera 30 min antes de tentar de novo. */
+  const comCache = async (chave: string, validadeMin: number, fn: () => Promise<void>) => {
+    const [ult] = (await sql`SELECT em, erro FROM meta_sync WHERE chave = ${chave}`) as any[];
+    const idade = ult ? Date.now() - new Date(ult.em).getTime() : Infinity;
+    if (ult && !forcar && idade < (ult.erro ? 30 : validadeMin) * 60_000) {
+      if (ult.erro) erros.push(ult.erro);
+      return;
+    }
+    try {
+      await fn();
+      await sql`INSERT INTO meta_sync (chave, em, erro) VALUES (${chave}, now(), NULL)
+                ON CONFLICT (chave) DO UPDATE SET em = now(), erro = NULL`;
+    } catch (e: any) {
+      const msg = `${chave.split(":")[0]}: ${e?.message || e}`;
+      erros.push(msg);
+      await sql`INSERT INTO meta_sync (chave, em, erro) VALUES (${chave}, now(), ${msg})
+                ON CONFLICT (chave) DO UPDATE SET em = now(), erro = ${msg}`;
+    }
+  };
+
+  for (const conta of contasConfiguradas()) {
+    // métricas do período: 10 min se inclui hoje; 6 h se for só passado
+    await comCache(`${conta}:${deDia}:${ateDia}`, incluiHoje ? 10 : 360, () => sincronizarConta(conta, deDia, ateDia));
+    // se a leitura de métricas falhou, nem tenta o resto (não insistir com a Meta)
+    if (erros.length) break;
+    await comCache(`${conta}:objetos`, 60, () => sincronizarObjetos(conta));
+  }
+  return erros.length ? [...new Set(erros)].join(" · ") : null;
 }
 
 export const STATUS_META: Record<string, [string, string]> = {

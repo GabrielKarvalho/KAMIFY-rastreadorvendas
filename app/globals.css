@@ -362,3 +362,14 @@ html[data-tema="escuro"] .logo { color: var(--head); }
   .topbar .tema-btn.mobile { display: inline-flex; position: absolute; right: 14px; top: calc(12px + env(safe-area-inset-top)); padding: 7px 9px; }
   .conteudo { position: relative; }
 }
+
+/* ---------- páginas de texto (privacidade) ---------- */
+.doc { max-width: 760px; margin: 0 auto; padding: 40px 22px 80px; line-height: 1.65; }
+.doc-top { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; }
+.doc-marca { font-size: 20px; font-weight: 800; letter-spacing: .06em; color: var(--head); }
+.doc-marca b { color: var(--blue); }
+.doc h1 { font-size: 28px; margin: 0 0 4px; }
+.doc h2 { font-size: 18px; margin: 28px 0 8px; }
+.doc-data { color: var(--muted); margin: 0 0 22px; }
+.doc ul { padding-left: 20px; }
+.doc li { margin-bottom: 6px; }

@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     await sql`INSERT INTO meta_acoes (objeto_id, nivel, nome, acao, de, para, ok, resposta)
               VALUES (${id}, ${obj.nivel}, ${obj.nome}, ${acao}, ${de}, ${para}, true, ${JSON.stringify(r).slice(0, 500)})`;
     // força nova leitura da Meta na próxima abertura
-    await sql`DELETE FROM meta_sync`;
+    await sql`DELETE FROM meta_sync WHERE chave LIKE '%:objetos'`;
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     const msg = String(e?.message || e);
