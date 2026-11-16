@@ -3,6 +3,7 @@ import { sql } from "@/lib/db";
 import { estaLogado } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Topbar from "@/components/Topbar";
+import AvisoMeta from "@/components/AvisoMeta";
 import { Barras, Card, Funil, Linha } from "@/components/Graficos";
 import { contexto, filtroAds, filtroVendas, impostoPct, SQL_TOTAIS_ADS, SQL_TOTAIS_VENDAS } from "@/lib/consultas";
 import { brl, intervalo, inteiro, linkCom, num, pct, TZ, vezes, type SP } from "@/lib/filtros";
@@ -95,7 +96,7 @@ export default async function Painel({ searchParams }: { searchParams: Promise<S
   return (
     <>
       <Topbar titulo="Painel" produtos={ctx.produtos} contas={ctx.contas} />
-      {ctx.erroMeta && <div className="aviso bad">Não consegui atualizar a Meta Ads: {ctx.erroMeta}</div>}
+      <AvisoMeta erro={ctx.erroMeta} ultima={ctx.ultimaMeta} />
       {!ctx.adsAtivo && (
         <div className="aviso">
           Gasto em anúncios ainda não conectado — configure <code>META_AD_ACCOUNT_IDS</code> e <code>META_ADS_TOKEN</code> na Vercel para ver gasto, lucro, ROAS e o funil.

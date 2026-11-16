@@ -81,10 +81,11 @@ export const impostoPct = () => Math.max(0, Number(process.env.IMPOSTO_PCT || 0)
 export async function contexto(iv: Intervalo, sp: SP) {
   await garantirSchema();
   const erroMeta = await sincronizarMeta(iv.deDia, iv.ateDia, sp.sync === "1").catch((e) => String(e?.message || e));
-  const [produtos, contas] = await Promise.all([
+  const [produtos, contas, ultimaMeta] = await Promise.all([
     sql`SELECT checkout_id AS id, max(checkout_titulo) AS titulo FROM vendas
         WHERE checkout_id IS NOT NULL GROUP BY 1 ORDER BY 2`,
     sql`SELECT id, nome FROM meta_contas ORDER BY nome`,
+    sql`SELECT max(atualizado_em) AS em FROM ads_diario`,
   ]);
   const contasLista = contasConfiguradas().map((id) => ({
     id,
@@ -95,5 +96,6 @@ export async function contexto(iv: Intervalo, sp: SP) {
     contas: contasLista,
     adsAtivo: adsConfigurado(),
     erroMeta,
+    ultimaMeta: ((ultimaMeta as any[])[0]?.em as string | null) || null,
   };
 }

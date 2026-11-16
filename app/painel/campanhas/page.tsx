@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { estaLogado } from "@/lib/auth";
 import Topbar from "@/components/Topbar";
+import AvisoMeta from "@/components/AvisoMeta";
 import { contexto, filtroAds, filtroVendas, impostoPct } from "@/lib/consultas";
 import { STATUS_META } from "@/lib/meta-ads";
 import { ChaveStatus, EditaOrcamento } from "@/components/Controles";
@@ -164,7 +165,7 @@ export default async function Campanhas({ searchParams }: { searchParams: Promis
   return (
     <>
       <Topbar titulo="Campanhas" produtos={ctx.produtos} contas={ctx.contas} />
-      {ctx.erroMeta && <div className="aviso bad">Não consegui atualizar a Meta Ads: {ctx.erroMeta}</div>}
+      <AvisoMeta erro={ctx.erroMeta} ultima={ctx.ultimaMeta} />
 
       <div className="abas">
         {(Object.keys(NIVEIS) as Nivel[]).map((k) => (

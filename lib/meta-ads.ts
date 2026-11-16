@@ -146,8 +146,12 @@ export async function sincronizarMeta(deDia: string, ateDia: string, forcar = fa
     contasConfiguradas().map(async (conta) => {
       const chave = `${conta}:${deDia}:${ateDia}`;
       const [ult] = (await sql`SELECT em, erro FROM meta_sync WHERE chave = ${chave}`) as any[];
-      const fresco = ult && !ult.erro && Date.now() - new Date(ult.em).getTime() < 10 * 60_000;
-      if (fresco && !forcar) return;
+      // sucesso: reaproveita por 10 min; erro: espera 30 min antes de tentar de novo (não insistir com a Meta)
+      const idade = ult ? Date.now() - new Date(ult.em).getTime() : Infinity;
+      if (ult && !forcar && idade < (ult.erro ? 30 : 10) * 60_000) {
+        if (ult.erro) erros.push(ult.erro);
+        return;
+      }
       try {
         await sincronizarConta(conta, deDia, ateDia);
         await sql`INSERT INTO meta_sync (chave, em, erro) VALUES (${chave}, now(), NULL)

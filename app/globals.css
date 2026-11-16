@@ -116,6 +116,9 @@ button, select, input { font: inherit; color: inherit; }
 
 .aviso { background: var(--blue-soft); color: var(--aviso-text); border-radius: 12px; padding: 12px 16px; margin-bottom: 18px; font-size: 13.5px; }
 .aviso.bad { background: var(--red-soft); color: var(--aviso-bad-text); }
+.aviso details { margin-top: 6px; font-size: 12px; opacity: .85; }
+.aviso summary { cursor: pointer; }
+.aviso details code { display: block; margin-top: 4px; background: transparent; padding: 0; word-break: break-word; white-space: normal; }
 
 /* ---------- cards ---------- */
 .grade { display: grid; gap: 18px; margin-bottom: 18px; }
