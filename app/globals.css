@@ -161,7 +161,8 @@ button, select, input { font: inherit; color: inherit; }
 .funil svg { width: 100%; height: 190px; display: block; }
 .funil-rotulos { display: grid; text-align: center; margin-top: 10px; }
 .funil-rotulos div { display: flex; flex-direction: column; gap: 2px; padding: 0 4px; }
-.funil-rotulos b { font-size: 18px; }
+.funil-rotulos b { font-size: 19px; font-variant-numeric: tabular-nums; }
+.funil-rotulos em { font-style: normal; font-weight: 600; font-size: 13px; color: var(--blue); }
 .funil-rotulos span { font-size: 13px; color: var(--text-2); }
 .funil-rotulos small { font-size: 11.5px; color: var(--muted); }
 
@@ -316,9 +317,11 @@ td.st { text-align: left; }
   .box { padding: 16px; border-radius: 14px; margin-bottom: 10px; }
   .box h2 { font-size: 15.5px; margin-bottom: 12px; padding-bottom: 12px; }
   .funil svg { height: 130px; }
-  .funil-rotulos b { font-size: 14px; }
-  .funil-rotulos span { font-size: 11px; }
-  .funil-rotulos small { display: none; }
+  .funil-rotulos b { font-size: 15px; }
+  .funil-rotulos span { font-size: 11px; line-height: 1.25; }
+  .funil-rotulos em { font-size: 12px; }
+  .funil-rotulos small { font-size: 10px; line-height: 1.2; }
+  .funil-rotulos div { padding: 0 2px; }
   .barras-svg { height: 160px; }
 
   .tabela-desktop { display: none; }

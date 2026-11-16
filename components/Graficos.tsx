@@ -70,12 +70,12 @@ export function Funil({ etapas }: { etapas: { nome: string; valor: number }[] })
       <div className="funil-rotulos" style={{ gridTemplateColumns: `repeat(${n}, 1fr)` }}>
         {etapas.map((e, i) => (
           <div key={e.nome}>
-            <b>{base > 0 ? ((e.valor / base) * 100).toFixed(1).replace(".", ",") + "%" : "—"}</b>
+            <b>{inteiro(e.valor)}</b>
             <span>{e.nome}</span>
-            <small>
-              {inteiro(e.valor)}
-              {i > 0 && etapas[i - 1].valor > 0 && ` · ${((e.valor / etapas[i - 1].valor) * 100).toFixed(1).replace(".", ",")}% da etapa anterior`}
-            </small>
+            <em>{base > 0 ? ((e.valor / base) * 100).toFixed(1).replace(".", ",") + "%" : "—"}</em>
+            {i > 0 && etapas[i - 1].valor > 0 && (
+              <small>{((e.valor / etapas[i - 1].valor) * 100).toFixed(1).replace(".", ",")}% da etapa anterior</small>
+            )}
           </div>
         ))}
       </div>
