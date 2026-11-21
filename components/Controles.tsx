@@ -116,7 +116,7 @@ export function EditaOrcamento({ id, valor, tipo }: { id: string; valor: number;
         />
       </span>
       <span className="orc-rapido">
-        {[-20, 10, 20, 50].map((p) => (
+        {[-20, 10, 20, 30, 50].map((p) => (
           <button type="button" key={p} onClick={() => ajusta(p)}>{p > 0 ? "+" : ""}{p}%</button>
         ))}
       </span>
