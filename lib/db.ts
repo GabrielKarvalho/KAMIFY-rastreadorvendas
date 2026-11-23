@@ -128,6 +128,22 @@ export function garantirSchema() {
           valor         INTEGER NOT NULL,
           atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
         )`;
+      // ---- Recuperação de PIX ----
+      await sql`ALTER TABLE vendas ADD COLUMN IF NOT EXISTS rec_contatado_em TIMESTAMPTZ`;
+      await sql`ALTER TABLE vendas ADD COLUMN IF NOT EXISTS rec_descartado_em TIMESTAMPTZ`;
+      await sql`ALTER TABLE vendas ADD COLUMN IF NOT EXISTS rec_notificado_em TIMESTAMPTZ`;
+      await sql`
+        CREATE TABLE IF NOT EXISTS push_inscricoes (
+          endpoint   TEXT PRIMARY KEY,
+          inscricao  JSONB NOT NULL,
+          criado_em  TIMESTAMPTZ NOT NULL DEFAULT now()
+        )`;
+      await sql`
+        CREATE TABLE IF NOT EXISTS config (
+          chave         TEXT PRIMARY KEY,
+          valor         TEXT,
+          atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+        )`;
       await sql`
         CREATE TABLE IF NOT EXISTS meta_sync (
           chave TEXT PRIMARY KEY,

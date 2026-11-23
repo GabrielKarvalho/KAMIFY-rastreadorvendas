@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { estaLogado } from "@/lib/auth";
 import Topbar from "@/components/Topbar";
+import SubAbasVendas from "@/components/SubAbasVendas";
+import { contarProntos } from "@/lib/recuperacao";
 import { contexto, filtroVendas } from "@/lib/consultas";
 import { brl, intervalo, inteiro, linkCom, num, TZ, type SP } from "@/lib/filtros";
 
@@ -39,7 +41,7 @@ export default async function Vendas({ searchParams }: { searchParams: Promise<S
   const contagemParams = [...fBase.params];
   if (sp.status) fBase.add((p) => `v.status = ${p}`, sp.status);
 
-  const [linhas, contagem, total] = await Promise.all([
+  const [linhas, contagem, total, prontos] = await Promise.all([
     sql.query(
       `SELECT v.id, v.status, v.metodo, v.valor, v.taxa, v.checkout_titulo, v.orderbumps, v.cliente_nome, v.cliente_email,
               v.cliente_telefone, v.utm_source, v.utm_campaign, v.utm_medium, v.utm_content, v.criado_em, v.pago_em,
@@ -48,6 +50,7 @@ export default async function Vendas({ searchParams }: { searchParams: Promise<S
        LIMIT ${POR_PAGINA} OFFSET ${(pagina - 1) * POR_PAGINA}`, fBase.params),
     sql.query(contagemSql, contagemParams),
     sql.query(`SELECT count(*) AS n FROM vendas v WHERE ${fBase.where}`, fBase.params),
+    contarProntos().catch(() => 0),
   ]);
 
   const cont = new Map((contagem as any[]).map((c) => [c.status, num(c.n)]));
@@ -58,6 +61,7 @@ export default async function Vendas({ searchParams }: { searchParams: Promise<S
   return (
     <>
       <Topbar titulo="Vendas" produtos={ctx.produtos} contas={ctx.contas} />
+      <SubAbasVendas atual="vendas" prontos={prontos} qs={linkCom("", sp)} />
 
       <div className="abas">
         {ABAS.map(([k, r]) => (

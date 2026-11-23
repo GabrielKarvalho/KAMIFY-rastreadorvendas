@@ -1,5 +1,5 @@
 // Service worker do KAMIFY: dados sempre da rede; só guarda arquivos estáticos e uma tela offline.
-const CACHE = "kamify-v2";
+const CACHE = "kamify-v3";
 const OFFLINE = "/offline.html";
 
 self.addEventListener("install", (e) => {
@@ -42,4 +42,37 @@ self.addEventListener("fetch", (e) => {
       ),
     );
   }
+});
+
+// ---- notificações (PIX para recuperar) ----
+self.addEventListener("push", (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch { d = { title: "KAMIFY", body: e.data ? e.data.text() : "" }; }
+  const tarefas = [
+    self.registration.showNotification(d.title || "KAMIFY", {
+      body: d.body || "",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      tag: d.tag || "kamify",
+      renotify: true,
+      data: { url: d.url || "/painel/vendas/recuperacao" },
+    }),
+  ];
+  if (typeof d.badge === "number" && self.navigator && "setAppBadge" in self.navigator) {
+    tarefas.push(self.navigator.setAppBadge(d.badge).catch(() => {}));
+  }
+  e.waitUntil(Promise.all(tarefas));
+});
+
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || "/painel/vendas/recuperacao";
+  e.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((lista) => {
+      for (const c of lista) {
+        if ("focus" in c) { c.navigate(url).catch(() => {}); return c.focus(); }
+      }
+      return self.clients.openWindow(url);
+    }),
+  );
 });

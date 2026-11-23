@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { estaLogado } from "@/lib/auth";
+import { AvisoRecuperacao } from "@/components/Recuperacao";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,7 @@ export default async function PainelLayout({ children }: { children: React.React
         <Sidebar />
       </Suspense>
       <main className="conteudo">{children}</main>
+      <AvisoRecuperacao />
     </div>
   );
 }
