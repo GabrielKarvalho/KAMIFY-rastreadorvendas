@@ -7,6 +7,7 @@ import AvisoMeta from "@/components/AvisoMeta";
 import { contexto, filtroAds, filtroVendas, impostoPct } from "@/lib/consultas";
 import { STATUS_META } from "@/lib/meta-ads";
 import { ChaveStatus, EditaOrcamento } from "@/components/Controles";
+import FiltrosCampanhas from "@/components/FiltrosCampanhas";
 import { brl, intervalo, inteiro, linkCom, num, pct, vezes, type SP } from "@/lib/filtros";
 
 export const dynamic = "force-dynamic";
@@ -136,16 +137,37 @@ export default async function Campanhas({ searchParams }: { searchParams: Promis
     }
   }
 
+  // filtros da lista
+  const ativa = (l: Linha) => !!l.id && !!l.status && (l.statusConfig || l.status) === "ACTIVE";
+  const busca = (sp.busca || "").trim().toLowerCase();
+  const todas = [...mapa.values()];
+  const filtradas = todas.filter((l) => {
+    if (sp.st === "ativas" && !ativa(l)) return false;
+    if (sp.st === "pausadas" && (!l.id || !l.status || ativa(l))) return false;
+    if (sp.st === "gasto" && !(l.gasto > 0)) return false;
+    const lucro = metricas(l).lucro;
+    if (sp.res === "vendas" && !(l.vendas > 0)) return false;
+    if (sp.res === "lucro" && !(lucro > 0)) return false;
+    if (sp.res === "prejuizo" && !(lucro < 0)) return false;
+    if (sp.res === "sem-venda" && !(l.gasto > 0 && l.vendas === 0)) return false;
+    if (busca && !`${l.nome} ${l.id || ""}`.toLowerCase().includes(busca)) return false;
+    return true;
+  });
+
   const ord = sp.ordem || "gasto";
   const desc = sp.dir !== "asc";
   const valorOrd = (l: Linha) => {
     const m = metricas(l) as any;
     const v = ord in m ? m[ord] : (l as any)[ord];
-    return v == null ? -Infinity : Number(v);
+    return v == null || !Number.isFinite(Number(v)) ? null : Number(v);
   };
-  const linhas = [...mapa.values()].sort((a, b) => {
-    const d = valorOrd(b) - valorOrd(a) || b.fat - a.fat;
-    return desc ? d : -d;
+  // itens sem valor (ex.: CPA sem vendas) sempre no fim, nas duas direções
+  const linhas = filtradas.sort((a, b) => {
+    const va = valorOrd(a), vb = valorOrd(b);
+    if (va == null && vb == null) return b.gasto - a.gasto;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    return (desc ? vb - va : va - vb) || b.fat - a.fat;
   });
 
   const tot = linhas.reduce((acc, l) => {
@@ -153,14 +175,15 @@ export default async function Campanhas({ searchParams }: { searchParams: Promis
     return acc;
   }, vazio(null, "Total"));
 
+  const manter = { st: sp.st, res: sp.res, ordem: sp.ordem, dir: sp.dir };
   const nomeFiltro = (id?: string) => (id ? (nomesFiltro as any[]).find((o) => o.id === id)?.nome || id : "");
   const drill = (l: Linha) =>
     !l.id ? null
-      : nivel === "campanhas" ? linkCom("/painel/campanhas", sp, { nivel: "conjuntos", campanha: l.id })
-      : nivel === "conjuntos" ? linkCom("/painel/campanhas", sp, { nivel: "anuncios", campanha: sp.campanha, conjunto: l.id })
+      : nivel === "campanhas" ? linkCom("/painel/campanhas", sp, { ...manter, nivel: "conjuntos", campanha: l.id })
+      : nivel === "conjuntos" ? linkCom("/painel/campanhas", sp, { ...manter, nivel: "anuncios", campanha: sp.campanha, conjunto: l.id })
       : null;
   const ordLink = (k: string) =>
-    linkCom("/painel/campanhas", sp, { nivel, campanha: sp.campanha, conjunto: sp.conjunto, ordem: k, dir: ord === k && desc ? "asc" : undefined });
+    linkCom("/painel/campanhas", sp, { st: sp.st, res: sp.res, busca: sp.busca, nivel, campanha: sp.campanha, conjunto: sp.conjunto, ordem: k, dir: ord === k && desc ? "asc" : undefined });
 
   return (
     <>
@@ -170,7 +193,7 @@ export default async function Campanhas({ searchParams }: { searchParams: Promis
       <div className="abas">
         {(Object.keys(NIVEIS) as Nivel[]).map((k) => (
           <Link key={k} className={k === nivel ? "on" : ""}
-            href={linkCom("/painel/campanhas", sp, { nivel: k, campanha: k === "campanhas" ? undefined : sp.campanha, conjunto: k === "anuncios" ? sp.conjunto : undefined })}>
+            href={linkCom("/painel/campanhas", sp, { ...manter, nivel: k, campanha: k === "campanhas" ? undefined : sp.campanha, conjunto: k === "anuncios" ? sp.conjunto : undefined })}>
             {NIVEIS[k].titulo}
           </Link>
         ))}
@@ -178,10 +201,12 @@ export default async function Campanhas({ searchParams }: { searchParams: Promis
           <span className="trilha">
             {sp.campanha && <>Campanha: <b>{nomeFiltro(sp.campanha)}</b></>}
             {sp.conjunto && <> › Conjunto: <b>{nomeFiltro(sp.conjunto)}</b></>}
-            <Link href={linkCom("/painel/campanhas", sp, { nivel })}>✕ limpar</Link>
+            <Link href={linkCom("/painel/campanhas", sp, { ...manter, nivel })}>✕ limpar</Link>
           </span>
         )}
       </div>
+
+      <FiltrosCampanhas total={todas.length} mostrando={linhas.length} />
 
       <section className="box sem-pad tabela-desktop">
         <div className="scroll">
@@ -200,7 +225,7 @@ export default async function Campanhas({ searchParams }: { searchParams: Promis
               </tr>
             </thead>
             <tbody>
-              {linhas.length === 0 && <tr><td colSpan={COLUNAS.length + 2} className="vazio">Nenhum dado no período.</td></tr>}
+              {linhas.length === 0 && <tr><td colSpan={COLUNAS.length + 2} className="vazio">{todas.length ? "Nenhum item com esses filtros." : "Nenhum dado no período."}</td></tr>}
               {linhas.map((l) => <LinhaTabela key={l.id || "sem"} l={l} link={drill(l)} />)}
             </tbody>
             {linhas.length > 0 && (
@@ -210,7 +235,7 @@ export default async function Campanhas({ searchParams }: { searchParams: Promis
         </div>
       </section>
       <section className="cartoes-camp">
-        {linhas.length === 0 && <p className="vazio">Nenhum dado no período.</p>}
+        {linhas.length === 0 && <p className="vazio">{todas.length ? "Nenhum item com esses filtros." : "Nenhum dado no período."}</p>}
         {linhas.map((l) => {
           const m = metricas(l);
           const link = drill(l);
