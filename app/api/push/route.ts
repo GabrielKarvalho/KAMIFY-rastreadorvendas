@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   if (b.teste) {
     const r = await notificarTodos({
       title: "🔔 Notificações ligadas",
-      body: "Você vai receber um aviso aqui quando um PIX completar 1h sem pagamento.",
+      body: "Você vai receber um aviso aqui quando um PIX passar do tempo de espera sem pagamento.",
       url: "/painel/vendas/recuperacao",
       tag: "teste",
     });

@@ -6,7 +6,7 @@ import { contarProntos } from "@/lib/recuperacao";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Quantos PIX pendentes já passaram de 1h e ainda não foram chamados (para o aviso dentro do app). */
+/** Quantos PIX pendentes já passaram do tempo de espera e ainda não foram chamados (para o aviso dentro do app). */
 export async function GET() {
   if (!(await estaLogado())) return NextResponse.json({ ok: false }, { status: 401 });
   await garantirSchema();

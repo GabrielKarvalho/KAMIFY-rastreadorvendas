@@ -120,7 +120,7 @@ const b64 = (s: string) => {
 };
 
 /** Liga as notificações deste aparelho. */
-export function AtivarNotificacoes() {
+export function AtivarNotificacoes({ esperaTxt = "1h" }: { esperaTxt?: string }) {
   const [estado, setEstado] = useState<"carregando" | "sem-suporte" | "ios-instalar" | "bloqueado" | "desligado" | "ligado" | "sem-config">("carregando");
   const [msg, setMsg] = useState("");
 
@@ -170,7 +170,7 @@ export function AtivarNotificacoes() {
     "ios-instalar": <>Para receber o aviso no iPhone, abra este site no Safari, toque em <b>Compartilhar → Adicionar à Tela de Início</b> e abra o KAMIFY pelo ícone. Depois volte aqui e ative.</>,
     bloqueado: "As notificações estão bloqueadas. Libere em Ajustes → Notificações → KAMIFY e recarregue a página.",
     "sem-config": "As notificações ainda não foram configuradas no servidor.",
-    desligado: "Receba um aviso no celular quando um PIX completar 1h sem pagamento.",
+    desligado: `Receba um aviso no celular quando um PIX completar ${esperaTxt} sem pagamento.`,
     ligado: "Notificações ativas neste aparelho ✓",
   };
   return (
@@ -214,5 +214,55 @@ export function AvisoRecuperacao() {
     <a className="rec-flutuante" href="/painel/vendas/recuperacao">
       💬 <b>{n}</b> {n === 1 ? "PIX para chamar" : "PIX para chamar"} →
     </a>
+  );
+}
+
+const rotulo = (m: number) => (m < 60 ? `${m} min` : m % 60 ? `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}` : `${m / 60}h`);
+
+/** Escolhe depois de quanto tempo sem pagamento o PIX entra para o contato manual. */
+export function EscolherTempo({ atual, opcoes, min, max }: { atual: number; opcoes: number[]; min: number; max: number }) {
+  const router = useRouter();
+  const [valor, setValor] = useState(atual);
+  const [outro, setOutro] = useState(opcoes.includes(atual) ? "" : String(atual));
+  const [estado, setEstado] = useState("");
+  useEffect(() => setValor(atual), [atual]);
+
+  const salvar = async (m: number) => {
+    if (!Number.isFinite(m) || m < min || m > max) return setEstado(`Escolha entre ${min} e ${max} minutos`);
+    const antes = valor;
+    setValor(m);
+    setEstado("Salvando…");
+    const r = await fetch("/api/recuperacao/modelo", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chave: "rec_minutos", valor: m }),
+    }).then((r) => r.json()).catch(() => ({ ok: false }));
+    if (r.ok) {
+      setEstado("Salvo ✓");
+      router.refresh();
+    } else {
+      setValor(antes);
+      setEstado(r.erro || "Erro ao salvar");
+    }
+    setTimeout(() => setEstado(""), 2500);
+  };
+
+  return (
+    <div className="rec-tempo">
+      <div className="rec-tempo-txt">
+        <b>⏱️ Chamar no WhatsApp depois de</b>
+        <small>Tempo sem pagamento até o PIX aparecer em &quot;Prontos para chamar&quot; e chegar a notificação. A Wiapy manda a dela aos 10 min.</small>
+      </div>
+      <div className="fc-seg rec-tempo-ops" role="group" aria-label="Tempo de espera">
+        {opcoes.map((m) => (
+          <button key={m} type="button" className={valor === m ? "on" : ""} onClick={() => { setOutro(""); salvar(m); }}>{rotulo(m)}</button>
+        ))}
+      </div>
+      <form className="rec-tempo-outro" onSubmit={(e) => { e.preventDefault(); salvar(Math.round(Number(outro))); }}>
+        <input inputMode="numeric" placeholder="outro" value={outro} onChange={(e) => setOutro(e.target.value.replace(/\D/g, ""))}
+          className={!opcoes.includes(valor) ? "on" : ""} aria-label="Outro tempo em minutos" />
+        <span>min</span>
+        {outro && Number(outro) !== valor && <button type="submit" className="primario">OK</button>}
+      </form>
+      {estado && <span className="rec-tempo-estado">{estado}</span>}
+    </div>
   );
 }

@@ -2,10 +2,10 @@ import { redirect } from "next/navigation";
 import { sql, garantirSchema } from "@/lib/db";
 import { estaLogado } from "@/lib/auth";
 import SubAbasVendas from "@/components/SubAbasVendas";
-import { AcoesRecuperacao, AtivarNotificacoes, AutoAtualizar, EditarModelo, Restaurar } from "@/components/Recuperacao";
+import { AcoesRecuperacao, AtivarNotificacoes, AutoAtualizar, EditarModelo, EscolherTempo, Restaurar } from "@/components/Recuperacao";
 import {
-  HORAS_PIX_VALIDO, MINUTOS_CONTATO, MODELOS_PADRAO, SQL_CONTATADOS, SQL_PENDENTES,
-  lerModelos, montarMensagem, telefoneWa,
+  HORAS_PIX_VALIDO, MINUTOS_MAX, MINUTOS_MIN, MODELOS_PADRAO, OPCOES_MINUTOS, SQL_CONTATADOS, SQL_PENDENTES,
+  lerMinutos, lerModelos, montarMensagem, telefoneWa, tempoTxt,
 } from "@/lib/recuperacao";
 import { brl, linkCom, num, TZ, type SP } from "@/lib/filtros";
 
@@ -28,15 +28,17 @@ export default async function Recuperacao({ searchParams }: { searchParams: Prom
   const sp = await searchParams;
   const qs = linkCom("", sp);
 
-  const [pendentes, contatados, modelos] = await Promise.all([
+  const [pendentes, contatados, modelos, espera] = await Promise.all([
     sql.query(`${SQL_PENDENTES} ORDER BY v.criado_em DESC`) as Promise<any[]>,
     sql.query(SQL_CONTATADOS) as Promise<any[]>,
     lerModelos(),
+    lerMinutos(),
   ]);
+  const esperaTxt = tempoTxt(espera);
 
   const livres = pendentes.filter((p) => !p.rec_contatado_em && !p.rec_descartado_em);
-  const prontos = livres.filter((p) => num(p.idade_min) >= MINUTOS_CONTATO && num(p.idade_min) < 48 * 60);
-  const aguardando = livres.filter((p) => num(p.idade_min) < MINUTOS_CONTATO);
+  const prontos = livres.filter((p) => num(p.idade_min) >= espera && num(p.idade_min) < 48 * 60);
+  const aguardando = livres.filter((p) => num(p.idade_min) < espera);
   const antigos = livres.filter((p) => num(p.idade_min) >= 48 * 60);
   const descartados = pendentes.filter((p) => p.rec_descartado_em);
 
@@ -58,7 +60,7 @@ export default async function Recuperacao({ searchParams }: { searchParams: Prom
           </div>
           <div className="rec-valor">
             <b>{brl(p.valor)}</b>
-            <small className={idade >= MINUTOS_CONTATO ? "amarelo" : "muted"}>há {tempo(idade)}</small>
+            <small className={idade >= espera ? "amarelo" : "muted"}>há {tempo(idade)}</small>
           </div>
         </div>
         <div className="rec-info">
@@ -81,11 +83,12 @@ export default async function Recuperacao({ searchParams }: { searchParams: Prom
       <header className="topbar"><h1>Vendas</h1></header>
       <SubAbasVendas atual="recuperacao" prontos={prontos.length} qs={qs} />
 
-      <AtivarNotificacoes />
+      <EscolherTempo atual={espera} opcoes={OPCOES_MINUTOS} min={MINUTOS_MIN} max={MINUTOS_MAX} />
+      <AtivarNotificacoes esperaTxt={esperaTxt} />
 
       <div className="grade g4 rec-kpis">
-        <div className="card"><span className="ct">Prontos para chamar</span><strong className={prontos.length ? "amarelo" : ""}>{prontos.length}</strong><span className="cx">PIX com mais de 1h sem pagar</span></div>
-        <div className="card"><span className="ct">Chamados <small>(30 dias)</small></span><strong>{contatados.length}</strong><span className="cx">{aguardando.length} aguardando completar 1h</span></div>
+        <div className="card"><span className="ct">Prontos para chamar</span><strong className={prontos.length ? "amarelo" : ""}>{prontos.length}</strong><span className="cx">PIX com mais de {esperaTxt} sem pagar</span></div>
+        <div className="card"><span className="ct">Chamados <small>(30 dias)</small></span><strong>{contatados.length}</strong><span className="cx">{aguardando.length} aguardando completar {esperaTxt}</span></div>
         <div className="card"><span className="ct">Recuperados <small>(30 dias)</small></span><strong className="verde">{recuperados.length}</strong><span className="cx">{contatados.length ? `${taxa.toFixed(0)}% dos chamados pagaram` : "—"}</span></div>
         <div className="card"><span className="ct">Faturamento recuperado</span><strong className="verde">{brl(fatRec)}</strong><span className="cx">pago depois do seu contato</span></div>
       </div>
@@ -93,7 +96,7 @@ export default async function Recuperacao({ searchParams }: { searchParams: Prom
       <section className="rec-secao">
         <h2>💬 Prontos para chamar <span className="cont">{prontos.length}</span></h2>
         {prontos.length === 0 ? (
-          <p className="vazio box">Nenhum PIX esperando contato agora. Quando um PIX completar 1h sem pagamento, ele aparece aqui{" "}
+          <p className="vazio box">Nenhum PIX esperando contato agora. Quando um PIX completar {esperaTxt} sem pagamento, ele aparece aqui{" "}
             e você recebe uma notificação.</p>
         ) : (
           <div className="rec-lista">{prontos.map((p) => cartao(p, true))}</div>
@@ -102,7 +105,7 @@ export default async function Recuperacao({ searchParams }: { searchParams: Prom
 
       {aguardando.length > 0 && (
         <section className="rec-secao">
-          <h2>⏳ Aguardando completar 1h <span className="cont">{aguardando.length}</span></h2>
+          <h2>⏳ Aguardando completar {esperaTxt} <span className="cont">{aguardando.length}</span></h2>
           <div className="box sem-pad">
             <table className="rec-tabela">
               <tbody>
@@ -111,13 +114,13 @@ export default async function Recuperacao({ searchParams }: { searchParams: Prom
                     <td className="nome l">{p.cliente_nome || "Sem nome"}<small>{p.cliente_telefone}</small></td>
                     <td><b>{brl(p.valor)}</b></td>
                     <td className="muted">gerado {hora(p.criado_em)}</td>
-                    <td><span className="tag wait">chamar em {Math.max(1, Math.ceil(MINUTOS_CONTATO - num(p.idade_min)))} min</span></td>
+                    <td><span className="tag wait">chamar em {Math.max(1, Math.ceil(espera - num(p.idade_min)))} min</span></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <p className="nota">A Wiapy já manda a mensagem automática dela aos 10 minutos. Se a pessoa pagar antes de 1h, ela some daqui sozinha.</p>
+          <p className="nota">A Wiapy já manda a mensagem automática dela aos 10 minutos. Se a pessoa pagar antes de {esperaTxt}, ela some daqui sozinha.</p>
         </section>
       )}
 

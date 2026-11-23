@@ -1,7 +1,24 @@
 import { sql } from "@/lib/db";
 
-/** Minutos depois do PIX gerado em que entra o contato manual (a Wiapy manda o dela aos 10 min). */
-export const MINUTOS_CONTATO = 60;
+/** Minutos depois do PIX gerado em que entra o contato manual (a Wiapy manda o dela aos 10 min).
+ *  Padrão 60; muda pela tela de Recuperação (config "rec_minutos"). */
+export const MINUTOS_PADRAO = 60;
+export const MINUTOS_MIN = 15;
+export const MINUTOS_MAX = 240;
+export const OPCOES_MINUTOS = [15, 20, 30, 45, 60, 90, 120];
+
+export async function lerMinutos() {
+  const [r] = (await sql`SELECT valor FROM config WHERE chave = 'rec_minutos'`) as any[];
+  const n = Math.round(Number(r?.valor));
+  return Number.isFinite(n) && n >= MINUTOS_MIN && n <= MINUTOS_MAX ? n : MINUTOS_PADRAO;
+}
+
+/** 30 → "30 min", 60 → "1h", 90 → "1h30" */
+export function tempoTxt(min: number) {
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60), m = min % 60;
+  return m ? `${h}h${String(m).padStart(2, "0")}` : `${h}h`;
+}
 /** Depois disso o PIX provavelmente expirou: a mensagem manda o link do checkout em vez do código. */
 export const HORAS_PIX_VALIDO = 24;
 /** Até quantos dias atrás um PIX pendente aparece na lista. */
@@ -92,11 +109,12 @@ export function montarMensagem(
     .trim();
 }
 
-/** PIX que já passaram de 1h e ainda não foram chamados nem descartados. */
-export async function contarProntos() {
+/** PIX que já passaram do tempo de espera e ainda não foram chamados nem descartados. */
+export async function contarProntos(minutos?: number) {
+  const espera = minutos ?? (await lerMinutos());
   const [r] = (await sql.query(
     `SELECT count(*) AS n FROM (${SQL_PENDENTES}) x
-     WHERE x.idade_min >= ${MINUTOS_CONTATO} AND x.idade_min < 48 * 60
+     WHERE x.idade_min >= ${espera} AND x.idade_min < 48 * 60
        AND x.rec_contatado_em IS NULL AND x.rec_descartado_em IS NULL`,
   )) as any[];
   return Number(r?.n || 0);
