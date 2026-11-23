@@ -32,9 +32,7 @@ Aqui é da equipe da *Formação Técnico em iPhone*.
 
 Vi que seu PIX de {valor} ficou pendente. Aconteceu alguma coisa ou ficou alguma dúvida sobre o curso?
 
-Se quiser garantir sua vaga, é só copiar o código abaixo e colar no app do seu banco (Pix copia e cola). O acesso é liberado assim que o pagamento cai 📲
-
-{pix}`,
+Se quiser garantir sua vaga, vou te mandar o código do PIX aqui embaixo. É só tocar e segurar nele, copiar e colar no app do seu banco (Pix copia e cola). O acesso é liberado assim que o pagamento cai 📲 👇`,
   modelo_expirado: `Oi, {nome}! Tudo bem? 👋
 Aqui é da equipe da *Formação Técnico em iPhone*.
 
@@ -100,11 +98,12 @@ export function montarMensagem(
 ) {
   const usarPix = !!v.pix_code && v.idade_min < HORAS_PIX_VALIDO * 60;
   const modelo = usarPix ? modelos.modelo_pix : modelos.modelo_expirado;
+  // o código PIX vai sempre numa mensagem separada (fica fácil de copiar), então {pix} sai do texto
   return modelo
+    .replace(/\n*\{pix\}\n*/g, "\n")
     .replaceAll("{nome}", primeiroNome(v.cliente_nome))
     .replaceAll("{valor}", reais(Number(v.valor)))
     .replaceAll("{produto}", v.checkout_titulo || "Formação Técnico em iPhone")
-    .replaceAll("{pix}", v.pix_code || "")
     .replaceAll("{link}", CHECKOUT_URL)
     .trim();
 }

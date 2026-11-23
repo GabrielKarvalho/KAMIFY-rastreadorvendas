@@ -478,3 +478,7 @@ html[data-tema="escuro"] .logo { color: var(--head); }
 .rec-tempo-outro .primario { padding: 6px 12px; }
 .rec-tempo-estado { font-size: 12.5px; color: var(--green); font-weight: 600; }
 @media (max-width: 900px) { .rec-tempo-ops button { padding: 6px 8px; font-size: 13px; } }
+.rec-pix { border: 1px dashed var(--green); background: var(--green-soft); color: var(--ok-text); border-radius: 11px; padding: 10px 14px; font: inherit; font-weight: 700; font-size: 14px; cursor: pointer; }
+.rec-pix.ok { border-style: solid; }
+.rec-passos { margin: 0; font-size: 12.5px; color: var(--text-2); background: var(--hover); border-radius: 9px; padding: 8px 10px; line-height: 1.45; }
+.rec-pre-pix { font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important; font-size: 11.5px !important; word-break: break-all !important; color: var(--muted) !important; }

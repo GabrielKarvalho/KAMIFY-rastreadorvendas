@@ -69,8 +69,9 @@ export default async function Recuperacao({ searchParams }: { searchParams: Prom
           <span className={`tag ${pixValido ? "ok" : "muted"}`}>{pixValido ? "PIX na mensagem" : "PIX provavelmente expirado: vai o link do checkout"}</span>
         </div>
         <details className="rec-previa">
-          <summary>Ver mensagem</summary>
+          <summary>{pixValido ? "Ver mensagens" : "Ver mensagem"}</summary>
           <pre>{msg}</pre>
+          {pixValido && <pre className="rec-pre-pix">{p.pix_code}</pre>}
         </details>
         <AcoesRecuperacao id={p.id} wa={telefoneWa(p.cliente_telefone)} email={p.cliente_email} mensagem={msg} pix={pixValido ? p.pix_code : null} />
       </div>
@@ -183,7 +184,7 @@ export default async function Recuperacao({ searchParams }: { searchParams: Prom
       <details className="rec-secao rec-dobra">
         <summary>✏️ Editar mensagens</summary>
         <div className="box">
-          <p className="texto">Use <code>{"{nome}"}</code> (primeiro nome), <code>{"{valor}"}</code>, <code>{"{produto}"}</code>, <code>{"{pix}"}</code> (código copia e cola) e <code>{"{link}"}</code> (link do checkout). Asteriscos deixam o texto em <b>*negrito*</b> no WhatsApp.</p>
+          <p className="texto">Use <code>{"{nome}"}</code> (primeiro nome), <code>{"{valor}"}</code>, <code>{"{produto}"}</code>, e <code>{"{link}"}</code> (link do checkout). O código PIX não vai no texto: ele é enviado sozinho numa segunda mensagem, para a pessoa copiar com um toque. Asteriscos deixam o texto em <b>*negrito*</b> no WhatsApp.</p>
           <EditarModelo chave="modelo_pix" titulo="Mensagem com o PIX" dica={`usada até ${HORAS_PIX_VALIDO}h depois do PIX gerado`} valor={modelos.modelo_pix} padrao={MODELOS_PADRAO.modelo_pix} />
           <EditarModelo chave="modelo_expirado" titulo="Mensagem com link do checkout" dica="usada quando o PIX já deve ter expirado" valor={modelos.modelo_expirado} padrao={MODELOS_PADRAO.modelo_expirado} />
         </div>
