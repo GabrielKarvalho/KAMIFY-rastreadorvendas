@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
+import { agendarAviso } from "@/lib/avisos";
 import { sql, garantirSchema } from "@/lib/db";
 import { enviarPurchase, type VendaCapi } from "@/lib/meta";
 import { iguais } from "@/lib/auth";
@@ -123,6 +124,11 @@ export async function POST(req: NextRequest) {
     }
   } else if (venda.capi_enviado_em) {
     capi = "já enviado";
+  }
+
+  // 5. PIX gerado e não pago: agenda o aviso de recuperação para a hora exata (fila da Vercel)
+  if (venda.status === "unpaid" && venda.metodo === "pix" && !venda.rec_notificado_em) {
+    after(() => agendarAviso(String(venda.id), venda.criado_em).catch((e) => console.error("agendar aviso falhou", venda.id, e?.message)));
   }
 
   return NextResponse.json({ ok: true, id: venda.id, status: venda.status, capi });

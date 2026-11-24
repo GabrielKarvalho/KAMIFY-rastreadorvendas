@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sql, garantirSchema } from "@/lib/db";
 import { iguais } from "@/lib/auth";
 import { notificarTodos } from "@/lib/push";
+import { agendarAviso } from "@/lib/avisos";
 import { SQL_PENDENTES, contarProntos, lerMinutos, primeiroNome, reais, tempoTxt } from "@/lib/recuperacao";
 
 export const runtime = "nodejs";
@@ -31,6 +32,22 @@ export async function GET(req: NextRequest) {
      ) AND rec_notificado_em IS NULL
      RETURNING id, cliente_nome, valor`,
   )) as any[];
+
+  // diagnóstico nos logs (sem dados pessoais) + agenda na fila os PIX que ainda não chegaram no tempo
+  const ultimos = (await sql.query(
+    `SELECT v.id, v.status, v.metodo, v.criado_em, v.rec_notificado_em, v.rec_contatado_em, v.rec_descartado_em,
+            extract(epoch FROM now() - v.criado_em) / 60 AS idade_min, (v.id IN (SELECT x.id FROM (${SQL_PENDENTES}) x)) AS pendente
+     FROM vendas v WHERE v.criado_em > now() - interval '6 hours' ORDER BY v.criado_em DESC LIMIT 10`,
+  )) as any[];
+  for (const u of ultimos) {
+    let fila = "";
+    if (u.pendente && !u.rec_notificado_em && !u.rec_contatado_em && !u.rec_descartado_em && Number(u.idade_min) < espera) {
+      fila = await agendarAviso(u.id, u.criado_em, espera).then((d) => `agendado em ${d}s`, (e) => `erro fila: ${e?.message || e}`);
+    }
+    console.log("diag", String(u.id).slice(-6), u.status, u.metodo, Math.round(Number(u.idade_min)) + "min",
+      u.pendente ? "pendente" : "fora", u.rec_notificado_em ? "notificado" : "", u.rec_contatado_em ? "contatado" : "",
+      u.rec_descartado_em ? "descartado" : "", fila);
+  }
 
   if (novos.length === 0) return NextResponse.json({ ok: true, novos: 0 });
 

@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "app/api/queues/rec-aviso/route.ts": {
+      "experimentalTriggers": [{ "type": "queue/v2beta", "topic": "rec-aviso" }]
+    }
+  }
+}

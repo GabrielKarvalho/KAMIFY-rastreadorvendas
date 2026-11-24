@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
+import { reagendarPendentes } from "@/lib/avisos";
 import { sql, garantirSchema } from "@/lib/db";
 import { estaLogado } from "@/lib/auth";
 import { MINUTOS_MAX, MINUTOS_MIN, MODELOS_PADRAO } from "@/lib/recuperacao";
@@ -19,6 +20,8 @@ export async function POST(req: NextRequest) {
     }
     await sql`INSERT INTO config (chave, valor) VALUES ('rec_minutos', ${String(n)})
               ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor, atualizado_em = now()`;
+    // reagenda os avisos dos PIX que ainda estão esperando, para valer o novo tempo
+    after(() => reagendarPendentes(n).catch((e) => console.error("reagendar falhou", e?.message)));
     return NextResponse.json({ ok: true });
   }
   if (!(chave in MODELOS_PADRAO)) return NextResponse.json({ ok: false, erro: "modelo inválido" }, { status: 400 });
