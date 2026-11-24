@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { sql, garantirSchema } from "@/lib/db";
 import { iguais } from "@/lib/auth";
 import { notificarTodos } from "@/lib/push";
-import { agendarAviso } from "@/lib/avisos";
+import { send } from "@vercel/queue";
+import { TOPICO_AVISO, agendarAviso } from "@/lib/avisos";
 import { SQL_PENDENTES, contarProntos, lerMinutos, primeiroNome, reais, tempoTxt } from "@/lib/recuperacao";
 
 export const runtime = "nodejs";
@@ -48,6 +49,12 @@ export async function GET(req: NextRequest) {
       u.pendente ? "pendente" : "fora", u.rec_notificado_em ? "notificado" : "", u.rec_contatado_em ? "contatado" : "",
       u.rec_descartado_em ? "descartado" : "", fila);
   }
+
+  // autoteste da fila, no máximo 1x por dia (o consumidor registra "fila rec-aviso ok" nos logs)
+  const dia = new Date().toISOString().slice(0, 10);
+  const teste = await send(TOPICO_AVISO, { teste: true }, { idempotencyKey: `teste-${dia}` }).then(
+    (r) => `ok ${r.messageId ?? ""}`, (e) => `erro: ${e?.message || e}`);
+  console.log("diag fila envio", teste);
 
   if (novos.length === 0) return NextResponse.json({ ok: true, novos: 0 });
 
