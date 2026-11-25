@@ -1,7 +1,7 @@
 import { send } from "@vercel/queue";
 import { sql } from "@/lib/db";
 import { notificarTodos } from "@/lib/push";
-import { SQL_PENDENTES, contarProntos, lerMinutos, primeiroNome, reais, tempoTxt } from "@/lib/recuperacao";
+import { SQL_PENDENTES, contarProntos, lerMinutos, notificacoesSilenciadas, primeiroNome, reais, tempoTxt } from "@/lib/recuperacao";
 
 export const TOPICO_AVISO = "rec-aviso";
 
@@ -47,6 +47,9 @@ export async function avisarSeDevido(id: string) {
   const [marcado] = (await sql`
     UPDATE vendas SET rec_notificado_em = now() WHERE id = ${id} AND rec_notificado_em IS NULL RETURNING id`) as any[];
   if (!marcado) return "já avisado";
+  // silenciado: não toca o celular (o PIX continua aparecendo na lista)
+  const silencio = await notificacoesSilenciadas();
+  if (silencio) return `não avisado (${silencio})`;
   const total = await contarProntos(espera);
   const r = await notificarTodos({
     title: "💬 Hora de chamar no WhatsApp",

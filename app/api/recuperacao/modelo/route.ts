@@ -13,6 +13,19 @@ export async function POST(req: NextRequest) {
   await garantirSchema();
   const b = await req.json().catch(() => ({}));
   const chave = String(b.chave || "");
+  if (chave === "notif_pausado" || chave === "notif_silencio") {
+    let valor = "";
+    if (chave === "notif_pausado") valor = b.valor ? "1" : "";
+    else if (b.valor) {
+      const [de, ate] = String(b.valor).split("-").map(Number);
+      const ok = (h: number) => Number.isInteger(h) && h >= 0 && h <= 23;
+      if (!ok(de) || !ok(ate) || de === ate) return NextResponse.json({ ok: false, erro: "horário inválido" }, { status: 400 });
+      valor = `${de}-${ate}`;
+    }
+    await sql`INSERT INTO config (chave, valor) VALUES (${chave}, ${valor})
+              ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor, atualizado_em = now()`;
+    return NextResponse.json({ ok: true });
+  }
   if (chave === "rec_minutos") {
     const n = Math.round(Number(b.valor));
     if (!Number.isFinite(n) || n < MINUTOS_MIN || n > MINUTOS_MAX) {

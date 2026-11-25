@@ -266,7 +266,7 @@ export function EscolherTempo({ atual, opcoes, min, max }: { atual: number; opco
     <div className="rec-tempo">
       <div className="rec-tempo-txt">
         <b>⏱️ Chamar no WhatsApp depois de</b>
-        <small>Tempo sem pagamento até o PIX aparecer em &quot;Prontos para chamar&quot; e chegar a notificação. A Wiapy manda a dela aos 10 min.</small>
+        <small>Tempo sem pagamento até o PIX aparecer em &quot;Prontos para chamar&quot; e chegar a notificação. Se a recuperação da Wiapy estiver ligada, ela manda a dela aos 10 min.</small>
       </div>
       <div className="fc-seg rec-tempo-ops" role="group" aria-label="Tempo de espera">
         {opcoes.map((m) => (
@@ -279,6 +279,58 @@ export function EscolherTempo({ atual, opcoes, min, max }: { atual: number; opco
         <span>min</span>
         {outro && Number(outro) !== valor && <button type="submit" className="primario">OK</button>}
       </form>
+      {estado && <span className="rec-tempo-estado">{estado}</span>}
+    </div>
+  );
+}
+
+/** Liga/pausa as notificações e define um horário silencioso automático. */
+export function ControleNotificacoes({ pausado, silencio, agora }: { pausado: boolean; silencio: { de: number; ate: number } | null; agora: string | null }) {
+  const router = useRouter();
+  const [p, setP] = useState(pausado);
+  const [auto, setAuto] = useState(!!silencio);
+  const [de, setDe] = useState(silencio?.de ?? 22);
+  const [ate, setAte] = useState(silencio?.ate ?? 8);
+  const [estado, setEstado] = useState("");
+  useEffect(() => { setP(pausado); setAuto(!!silencio); if (silencio) { setDe(silencio.de); setAte(silencio.ate); } }, [pausado, silencio]);
+
+  const salvar = async (chave: string, valor: string | boolean) => {
+    setEstado("Salvando…");
+    const r = await fetch("/api/recuperacao/modelo", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chave, valor }),
+    }).then((r) => r.json()).catch(() => ({ ok: false }));
+    setEstado(r.ok ? "Salvo ✓" : r.erro || "Erro ao salvar");
+    if (r.ok) router.refresh();
+    setTimeout(() => setEstado(""), 2500);
+  };
+  const horas = Array.from({ length: 24 }, (_, h) => h);
+
+  return (
+    <div className={`rec-tempo rec-notif-ctl${p ? " pausado" : ""}`}>
+      <div className="rec-tempo-txt">
+        <b>🔔 Notificações de recuperação</b>
+        <small>
+          {p ? "Pausadas: nenhum aviso vai tocar até você ligar de novo." : agora ? `Ligadas, mas silenciadas agora (${agora}).` : "Ligadas: você recebe um aviso quando um PIX passar do tempo de espera."}
+          {" "}Os PIX continuam aparecendo na lista mesmo com as notificações desligadas.
+        </small>
+      </div>
+      <div className="fc-seg" role="group" aria-label="Notificações">
+        <button type="button" className={!p ? "on" : ""} onClick={() => { setP(false); salvar("notif_pausado", false); }}>Ligadas</button>
+        <button type="button" className={p ? "on pausa" : ""} onClick={() => { setP(true); salvar("notif_pausado", true); }}>Pausadas</button>
+      </div>
+      <div className="rec-silencio">
+        <label>
+          <input type="checkbox" checked={auto} onChange={(e) => { setAuto(e.target.checked); salvar("notif_silencio", e.target.checked ? `${de}-${ate}` : ""); }} />
+          Silenciar automaticamente das
+        </label>
+        <select value={de} disabled={!auto} onChange={(e) => { const v = Number(e.target.value); setDe(v); if (v !== ate) salvar("notif_silencio", `${v}-${ate}`); }}>
+          {horas.map((h) => <option key={h} value={h}>{h}h</option>)}
+        </select>
+        <span>às</span>
+        <select value={ate} disabled={!auto} onChange={(e) => { const v = Number(e.target.value); setAte(v); if (v !== de) salvar("notif_silencio", `${de}-${v}`); }}>
+          {horas.map((h) => <option key={h} value={h}>{h}h</option>)}
+        </select>
+      </div>
       {estado && <span className="rec-tempo-estado">{estado}</span>}
     </div>
   );

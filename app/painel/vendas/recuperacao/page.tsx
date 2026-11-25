@@ -2,10 +2,10 @@ import { redirect } from "next/navigation";
 import { sql, garantirSchema } from "@/lib/db";
 import { estaLogado } from "@/lib/auth";
 import SubAbasVendas from "@/components/SubAbasVendas";
-import { AcoesRecuperacao, AtivarNotificacoes, AutoAtualizar, EditarModelo, EscolherTempo, Restaurar } from "@/components/Recuperacao";
+import { AcoesRecuperacao, AtivarNotificacoes, AutoAtualizar, ControleNotificacoes, EditarModelo, EscolherTempo, Restaurar } from "@/components/Recuperacao";
 import {
   HORAS_PIX_VALIDO, MINUTOS_MAX, MINUTOS_MIN, MODELOS_PADRAO, OPCOES_MINUTOS, SQL_CONTATADOS, SQL_PENDENTES,
-  lerMinutos, lerModelos, montarMensagem, telefoneWa, tempoTxt,
+  lerMinutos, lerModelos, lerNotif, montarMensagem, notificacoesSilenciadas, telefoneWa, tempoTxt,
 } from "@/lib/recuperacao";
 import { brl, linkCom, num, TZ, type SP } from "@/lib/filtros";
 
@@ -28,11 +28,13 @@ export default async function Recuperacao({ searchParams }: { searchParams: Prom
   const sp = await searchParams;
   const qs = linkCom("", sp);
 
-  const [pendentes, contatados, modelos, espera] = await Promise.all([
+  const [pendentes, contatados, modelos, espera, notif, silenciadoAgora] = await Promise.all([
     sql.query(`${SQL_PENDENTES} ORDER BY v.criado_em DESC`) as Promise<any[]>,
     sql.query(SQL_CONTATADOS) as Promise<any[]>,
     lerModelos(),
     lerMinutos(),
+    lerNotif(),
+    notificacoesSilenciadas(),
   ]);
   const esperaTxt = tempoTxt(espera);
 
@@ -85,6 +87,7 @@ export default async function Recuperacao({ searchParams }: { searchParams: Prom
       <SubAbasVendas atual="recuperacao" prontos={prontos.length} qs={qs} />
 
       <EscolherTempo atual={espera} opcoes={OPCOES_MINUTOS} min={MINUTOS_MIN} max={MINUTOS_MAX} />
+      <ControleNotificacoes pausado={notif.pausado} silencio={notif.silencio} agora={notif.pausado ? null : silenciadoAgora} />
       <AtivarNotificacoes esperaTxt={esperaTxt} />
 
       <div className="grade g4 rec-kpis">

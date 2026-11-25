@@ -3,14 +3,42 @@ import { sql } from "@/lib/db";
 /** Minutos depois do PIX gerado em que entra o contato manual (a Wiapy manda o dela aos 10 min).
  *  Padrão 60; muda pela tela de Recuperação (config "rec_minutos"). */
 export const MINUTOS_PADRAO = 60;
-export const MINUTOS_MIN = 15;
+export const MINUTOS_MIN = 5;
 export const MINUTOS_MAX = 240;
-export const OPCOES_MINUTOS = [15, 20, 30, 45, 60, 90, 120];
+export const OPCOES_MINUTOS = [5, 10, 15, 20, 30, 45, 60, 90, 120];
 
 export async function lerMinutos() {
   const [r] = (await sql`SELECT valor FROM config WHERE chave = 'rec_minutos'`) as any[];
   const n = Math.round(Number(r?.valor));
   return Number.isFinite(n) && n >= MINUTOS_MIN && n <= MINUTOS_MAX ? n : MINUTOS_PADRAO;
+}
+
+export type ConfigNotif = { pausado: boolean; silencio: { de: number; ate: number } | null };
+
+/** Notificações: pausa manual e horário silencioso automático (ex.: 22h às 8h, horário de Brasília). */
+export async function lerNotif(): Promise<ConfigNotif> {
+  const rows = (await sql`SELECT chave, valor FROM config WHERE chave IN ('notif_pausado', 'notif_silencio')`) as any[];
+  const m = Object.fromEntries(rows.map((r) => [r.chave, r.valor]));
+  const [de, ate] = String(m.notif_silencio || "").split("-").map(Number);
+  const valido = (h: number) => Number.isInteger(h) && h >= 0 && h <= 23;
+  return { pausado: m.notif_pausado === "1", silencio: valido(de) && valido(ate) && de !== ate ? { de, ate } : null };
+}
+
+export function horaBrasilia(d = new Date()) {
+  return Number(new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "numeric", hourCycle: "h23" }).format(d));
+}
+
+/** true se agora as notificações não devem tocar (pausadas ou dentro do horário silencioso). */
+export async function notificacoesSilenciadas() {
+  const c = await lerNotif();
+  if (c.pausado) return "pausadas";
+  if (c.silencio) {
+    const h = horaBrasilia();
+    const { de, ate } = c.silencio;
+    const dentro = de < ate ? h >= de && h < ate : h >= de || h < ate;
+    if (dentro) return "horário silencioso";
+  }
+  return null;
 }
 
 /** 30 → "30 min", 60 → "1h", 90 → "1h30" */

@@ -4,7 +4,7 @@ import { iguais } from "@/lib/auth";
 import { notificarTodos } from "@/lib/push";
 import { send } from "@vercel/queue";
 import { TOPICO_AVISO, agendarAviso } from "@/lib/avisos";
-import { SQL_PENDENTES, contarProntos, lerMinutos, primeiroNome, reais, tempoTxt } from "@/lib/recuperacao";
+import { SQL_PENDENTES, contarProntos, lerMinutos, notificacoesSilenciadas, primeiroNome, reais, tempoTxt } from "@/lib/recuperacao";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -57,6 +57,8 @@ export async function GET(req: NextRequest) {
   console.log("diag fila envio", teste);
 
   if (novos.length === 0) return NextResponse.json({ ok: true, novos: 0 });
+  const silencio = await notificacoesSilenciadas();
+  if (silencio) return NextResponse.json({ ok: true, novos: novos.length, silenciado: silencio });
 
   const total = await contarProntos(espera);
   const ha = tempoTxt(espera);
