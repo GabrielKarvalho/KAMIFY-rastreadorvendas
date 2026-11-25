@@ -23,13 +23,17 @@ export function filtroVendas(iv: Intervalo, sp: SP) {
   };
 }
 
-/** WHERE dos dados da Meta: período + conta. */
+/** WHERE dos dados da Meta: período + conta + produto (pela ligação campanha → produto). */
 export function filtroAds(iv: Intervalo, sp: SP) {
   const params: unknown[] = [iv.deDia, iv.ateDia];
   const conds = ["a.data BETWEEN $1 AND $2"];
   if (sp.conta) {
     params.push(sp.conta);
     conds.push(`a.conta = $${params.length}`);
+  }
+  if (sp.produto) {
+    params.push(sp.produto);
+    conds.push(`a.campaign_id IN (SELECT campaign_id FROM campanha_produto_efetivo WHERE checkout_id = $${params.length})`);
   }
   return {
     params,

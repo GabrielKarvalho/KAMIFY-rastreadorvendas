@@ -128,6 +128,29 @@ export function garantirSchema() {
           valor         INTEGER NOT NULL,
           atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
         )`;
+      // ---- Produto de cada campanha (para filtrar o gasto da Meta por produto) ----
+      await sql`
+        CREATE TABLE IF NOT EXISTS campanha_produto (
+          campaign_id   TEXT PRIMARY KEY,
+          checkout_id   TEXT NOT NULL,          -- '' = nenhum produto (não conta em nenhum filtro)
+          atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+        )`;
+      // automático: o produto com mais pedidos (qualquer status) vindos da UTM da campanha; o manual tem prioridade
+      await sql.query(`
+        CREATE OR REPLACE VIEW campanha_produto_efetivo AS
+        WITH auto AS (
+          SELECT DISTINCT ON (cid) cid, checkout_id
+          FROM (
+            SELECT substring(utm_campaign from '\\|([0-9]+)$') AS cid, checkout_id, count(*) AS n
+            FROM vendas WHERE utm_campaign ~ '\\|[0-9]+$' AND checkout_id IS NOT NULL
+            GROUP BY 1, 2
+          ) t ORDER BY cid, n DESC
+        )
+        SELECT coalesce(m.campaign_id, a.cid) AS campaign_id,
+               coalesce(m.checkout_id, a.checkout_id) AS checkout_id,
+               (m.campaign_id IS NOT NULL) AS manual
+        FROM auto a FULL OUTER JOIN campanha_produto m ON m.campaign_id = a.cid`)
+        .catch((e) => console.error("view campanha_produto_efetivo", e?.message)); // corrida entre instâncias: outra já criou
       // ---- Recuperação de PIX ----
       await sql`ALTER TABLE vendas ADD COLUMN IF NOT EXISTS rec_contatado_em TIMESTAMPTZ`;
       await sql`ALTER TABLE vendas ADD COLUMN IF NOT EXISTS rec_descartado_em TIMESTAMPTZ`;

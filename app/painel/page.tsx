@@ -65,9 +65,9 @@ export default async function Painel({ searchParams }: { searchParams: Promise<S
 
   const t: any = (tv as any[])[0] || {};
   const a: any = (ta as any[])[0] || {};
-  // gasto manual substitui o da Meta no dia lançado (só quando não há filtro de conta)
+  // gasto manual substitui o da Meta no dia lançado (só quando não há filtro de conta nem de produto)
   const gastoMeta = new Map((serieA as any[]).map((r) => [r.k, num(r.gasto)]));
-  const gastoManual = sp.conta ? new Map<string, number>() : new Map((manuais as any[]).map((r) => [r.k, num(r.valor)]));
+  const gastoManual = sp.conta || sp.produto ? new Map<string, number>() : new Map((manuais as any[]).map((r) => [r.k, num(r.valor)]));
   const gastoDia = (d: string) => (gastoManual.has(d) ? gastoManual.get(d)! : gastoMeta.get(d) || 0);
   const diasComGasto = new Set([...gastoMeta.keys(), ...gastoManual.keys()]);
   const gasto = [...diasComGasto].reduce((t, d) => t + gastoDia(d), 0);
@@ -120,7 +120,7 @@ export default async function Painel({ searchParams }: { searchParams: Promise<S
             de={iv.deDia}
             ate={iv.ateDia}
             hoje={diaSP()}
-            lancados={(sp.conta ? [] : (manuais as any[])).map((m) => ({ data: m.k, valor: num(m.valor), meta: gastoMeta.get(m.k) || 0 }))}
+            lancados={(sp.conta || sp.produto ? [] : (manuais as any[])).map((m) => ({ data: m.k, valor: num(m.valor), meta: gastoMeta.get(m.k) || 0 }))}
           />
         </div>
         <Card titulo="CPA" valor={vendas && gasto ? brl(gasto / vendas) : "—"} />

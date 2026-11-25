@@ -488,3 +488,6 @@ html[data-tema="escuro"] .logo { color: var(--head); }
 .rec-silencio label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 .rec-silencio select { border: 1px solid var(--line); border-radius: 8px; padding: 5px 6px; font: inherit; font-size: 13px; background: var(--panel); color: var(--text); }
 .rec-silencio select:disabled { opacity: .5; }
+.prod-camp { margin-top: 18px; }
+.prod-camp-tab select { border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font: inherit; font-size: 13px; background: var(--panel); color: var(--text); max-width: 260px; }
+.prod-camp-tab tr.sem td { background: var(--amber-soft); }

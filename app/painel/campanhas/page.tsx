@@ -8,6 +8,7 @@ import { contexto, filtroAds, filtroVendas, impostoPct } from "@/lib/consultas";
 import { STATUS_META } from "@/lib/meta-ads";
 import { ChaveStatus, EditaOrcamento } from "@/components/Controles";
 import FiltrosCampanhas from "@/components/FiltrosCampanhas";
+import ProdutoCampanhas from "@/components/ProdutoCampanhas";
 import { brl, intervalo, inteiro, linkCom, num, pct, vezes, type SP } from "@/lib/filtros";
 
 export const dynamic = "force-dynamic";
@@ -88,7 +89,9 @@ export default async function Campanhas({ searchParams }: { searchParams: Promis
     fv.add((p) => `v.utm_medium ~ ('\\|' || ${p} || '$')`, sp.conjunto);
   }
 
-  const [ads, vendas, objs, nomesFiltro] = await Promise.all([
+  // campanhas do período (sem o filtro de produto) com o produto ligado a cada uma
+  const faTodas = filtroAds(iv, { ...sp, produto: undefined });
+  const [ads, vendas, objs, nomesFiltro, ligacoes] = await Promise.all([
     sql.query(
       `SELECT a.${N.ads}_id AS id, max(a.${N.ads}_name) AS nome,
               sum(a.gasto) AS gasto, sum(a.impressoes) AS impressoes, sum(a.cliques) AS cliques,
@@ -107,7 +110,19 @@ export default async function Campanhas({ searchParams }: { searchParams: Promis
        FROM vendas v WHERE ${fv.where} GROUP BY 1`, fv.params),
     sql.query(`SELECT id, nome, status, status_config, orcamento, tipo_orcamento, pai_id FROM meta_objetos WHERE nivel = $1`, [N.obj]),
     sql.query(`SELECT id, nome FROM meta_objetos WHERE id = ANY($1)`, [[sp.campanha, sp.conjunto].filter(Boolean)]),
+    nivel === "campanhas" && !sp.campanha
+      ? sql.query(
+          `SELECT a.campaign_id AS id, max(a.campaign_name) AS nome, sum(a.gasto) AS gasto,
+                  max(e.checkout_id) AS produto, bool_or(coalesce(e.manual, false)) AS manual
+           FROM ads_diario a LEFT JOIN campanha_produto_efetivo e ON e.campaign_id = a.campaign_id
+           WHERE ${faTodas.where} AND a.campaign_id IS NOT NULL
+           GROUP BY 1 HAVING sum(a.gasto) > 0 ORDER BY sum(a.gasto) DESC`, faTodas.params)
+      : Promise.resolve([]),
   ]);
+  const listaLigacoes = (ligacoes as any[]).map((c) => ({
+    id: c.id, nome: c.nome || c.id, gasto: brl(c.gasto), produto: c.produto ?? null, manual: !!c.manual,
+  }));
+  const semProduto = listaLigacoes.filter((c) => c.produto === null);
 
   const mapa = new Map<string, Linha>();
   const vazio = (id: string | null, nome: string): Linha => ({
@@ -206,6 +221,14 @@ export default async function Campanhas({ searchParams }: { searchParams: Promis
         )}
       </div>
 
+      {sp.produto && semProduto.length > 0 && (
+        <div className="aviso">
+          ⚠️ {semProduto.length} campanha{semProduto.length > 1 ? "s" : ""} com gasto no período ainda sem produto
+          ({brl((ligacoes as any[]).filter((c) => c.produto == null).reduce((s, c) => s + num(c.gasto), 0))}) não {semProduto.length > 1 ? "entram" : "entra"} neste filtro.
+          Defina o produto em &quot;Produto de cada campanha&quot;, no fim da página.
+        </div>
+      )}
+
       <FiltrosCampanhas total={todas.length} mostrando={linhas.length} />
 
       <section className="box sem-pad tabela-desktop">
@@ -272,6 +295,9 @@ export default async function Campanhas({ searchParams }: { searchParams: Promis
         Gasto, impressões, cliques e IC vêm da Meta Ads; vendas, faturamento e PIX vêm da Wiapy, ligados pelo ID no final de cada UTM
         (ex.: <code>Campanha X|1201…</code>). <b>Conexão</b> = visitas ÷ cliques: abaixo de 50% indica página lenta ou link com problema. Clique no nome para descer de nível.
       </p>
+      {nivel === "campanhas" && !sp.campanha && (
+        <ProdutoCampanhas campanhas={listaLigacoes} produtos={ctx.produtos} semProduto={semProduto.length} aberto={!!sp.produto && semProduto.length > 0} />
+      )}
     </>
   );
 }
